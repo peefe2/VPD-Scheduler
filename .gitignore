@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.db
+node_modules/
+dist/
+.pytest_cache/
+research/data/raw/

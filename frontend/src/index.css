@@ -1,0 +1,114 @@
+/* 디자인 토큰. 목업(Design 캔버스)의 팔레트를 기준으로 정리. */
+:root {
+  --bg: #f5f3ec;
+  --surface: #fcfbf7;
+  --surface-strong: #ffffff;
+  --surface-muted: #ece8da;
+  --line: #ddd8ca;
+  --line-strong: #c9c3b2;
+
+  --ink: #1b211e;
+  --ink-2: #3b4640;
+  --ink-3: #5b655f;
+  --ink-4: #8c968f;
+
+  --brand: #1b5e49;
+  --brand-2: #1f6b54;
+  --brand-soft: #dcebe3;
+  --brand-tint: #f3f8f5;
+
+  --side-bg: #17201c;
+  --side-active: #2b3a33;
+  --side-line: #33443b;
+  --side-ink: #f3f1e8;
+  --side-ink-2: #b9c2bc;
+  --side-dot: #5fb392;
+
+  /* 대역 아래(과습)는 파랑, 위(건조)는 주황 — 색상만이 아니라 밝기도 다르게 */
+  --below: #2f6db0;
+  --below-soft: #dce6f2;
+  --above: #b4541a;
+  --above-soft: #f6e3d3;
+  --warn: #8f3f10;
+  --danger: #a5341f;
+
+  /* 낮 대역 안 비율 단계 (밝을수록 낮음) */
+  --scale-0: #eee9da;
+  --scale-1: #cfe3d7;
+  --scale-2: #94c4ab;
+  --scale-3: #4f9a7a;
+  --scale-4: #1f6b54;
+
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 16px;
+  --shadow: 0 1px 2px rgb(23 32 28 / 4%), 0 4px 16px rgb(23 32 28 / 4%);
+
+  --font: 'IBM Plex Sans KR', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-2);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--ink-3);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

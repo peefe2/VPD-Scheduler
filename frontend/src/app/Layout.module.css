@@ -1,0 +1,168 @@
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100%;
+}
+
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: var(--side-bg);
+  color: var(--side-ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 24px 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 22px;
+  color: var(--side-ink);
+  font-weight: 700;
+  font-size: 17px;
+  text-decoration: none;
+}
+
+.brandDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--side-dot);
+  box-shadow: 0 0 0 4px rgb(95 179 146 / 18%);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-s);
+  color: var(--side-ink-2);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.navItem:hover {
+  background: rgb(255 255 255 / 5%);
+  color: var(--side-ink);
+}
+
+.navItem[aria-current='page'] {
+  background: var(--side-active);
+  color: var(--side-ink);
+  font-weight: 600;
+}
+
+.navItem[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.navTag {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--side-ink-2);
+}
+
+.ghBox {
+  margin-top: auto;
+  border: 1px solid var(--side-line);
+  border-radius: var(--radius-m);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ghLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--side-ink-2);
+}
+
+.ghSelect {
+  height: 38px;
+  width: 100%;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--side-line);
+  background: #1f2a25;
+  color: var(--side-ink);
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ghMeta {
+  font-size: 12px;
+  color: var(--side-ink-2);
+}
+
+.newGh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--side-dot);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.main {
+  min-width: 0;
+  padding: 32px 40px 56px;
+}
+
+.content {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    position: static;
+    height: auto;
+    padding: 14px 16px;
+  }
+  .brand {
+    padding: 0 4px 10px;
+  }
+  .nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .navItem {
+    flex: none;
+  }
+  .navTag {
+    display: none;
+  }
+  .ghBox {
+    margin-top: 10px;
+  }
+  .main {
+    padding: 24px 16px 48px;
+  }
+}

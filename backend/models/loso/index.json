@@ -1,0 +1,57 @@
+{
+  "sources": {
+    "aihub_farm1": {
+      "key": "s0",
+      "history_start": "2021-10-21 10:00:00",
+      "history_end": "2021-11-28 05:00:00"
+    },
+    "aihub_farm2": {
+      "key": "s1",
+      "history_start": "2021-09-27 00:00:00",
+      "history_end": "2021-12-31 23:00:00"
+    },
+    "aihub_farm4": {
+      "key": "s2",
+      "history_start": "2021-11-10 18:00:00",
+      "history_end": "2021-11-12 13:00:00"
+    },
+    "aihub_farm5": {
+      "key": "s3",
+      "history_start": "2021-11-10 12:00:00",
+      "history_end": "2021-12-21 12:00:00"
+    },
+    "aihub_farm6": {
+      "key": "s4",
+      "history_start": "2021-10-25 11:00:00",
+      "history_end": "2021-12-21 12:00:00"
+    },
+    "farm3_2023": {
+      "key": "s5",
+      "history_start": "2021-09-27 00:00:00",
+      "history_end": "2021-12-19 21:00:00"
+    },
+    "gh24_1온실": {
+      "key": "s6",
+      "history_start": "2024-09-30 00:00:00",
+      "history_end": "2025-01-31 23:00:00"
+    },
+    "gh24_2온실": {
+      "key": "s7",
+      "history_start": "2024-09-30 00:00:00",
+      "history_end": "2025-02-07 23:00:00"
+    },
+    "gh24_3온실": {
+      "key": "s8",
+      "history_start": "2024-09-29 00:00:00",
+      "history_end": "2025-02-07 23:00:00"
+    },
+    "gh24_4온실": {
+      "key": "s9",
+      "history_start": "2024-09-29 00:00:00",
+      "history_end": "2025-02-07 23:00:00"
+    }
+  },
+  "data_sha256": "059ecdc7a62c9f8550d06f35506e792607268504561ce03f270f0be34475dd0e",
+  "excluded_rows": "gh24_1온실 2025-02-01~02-07 168행 (습도 열에 온도 복사)",
+  "trained_on": "2026-10-12"
+}

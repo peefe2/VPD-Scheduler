@@ -1,0 +1,42 @@
+{
+  "horizon_hours": 1,
+  "features": [
+    "temp",
+    "humidity",
+    "co2",
+    "VPD",
+    "temp_lag1",
+    "humidity_lag1",
+    "co2_lag1",
+    "VPD_lag1",
+    "temp_lag2",
+    "humidity_lag2",
+    "co2_lag2",
+    "VPD_lag2"
+  ],
+  "params": {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "random_state": 42,
+    "verbose": -1
+  },
+  "train_rows": 17377,
+  "train_sources": [
+    "aihub_farm1",
+    "aihub_farm2",
+    "aihub_farm4",
+    "aihub_farm5",
+    "aihub_farm6",
+    "farm3_2023",
+    "gh24_1온실",
+    "gh24_2온실",
+    "gh24_3온실",
+    "gh24_4온실"
+  ],
+  "data_file": "combined_hourly_pointsample.csv",
+  "data_sha256": "059ecdc7a62c9f8550d06f35506e792607268504561ce03f270f0be34475dd0e",
+  "excluded_rows": "gh24_1온실 2025-02-01~02-07 168행 (습도 열에 온도 복사)",
+  "trained_on": "2026-10-12",
+  "loso_improvement": "그룹A +9.7%(6곳 중 5곳 개선), 그룹B -10.9%(0곳)"
+}

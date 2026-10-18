@@ -1,0 +1,279 @@
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monthLabel {
+  min-width: 128px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ---------- 월간 그리드 ---------- */
+.weekdays,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.weekdays {
+  margin-bottom: 6px;
+}
+
+.weekdays span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+.weekdays span:first-child {
+  color: var(--above);
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1 / 0.86;
+  min-height: 76px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 8px 9px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  background: var(--scale-0);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+}
+
+.cell:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.cell[aria-pressed='true'] {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.cell[data-level='1'] {
+  background: var(--scale-1);
+}
+.cell[data-level='2'] {
+  background: var(--scale-2);
+}
+.cell[data-level='3'] {
+  background: var(--scale-3);
+  color: #fff;
+}
+.cell[data-level='4'] {
+  background: var(--scale-4);
+  color: #fff;
+}
+
+.cell[data-insufficient='true'] {
+  background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--surface-muted) 6px 12px);
+  color: var(--ink-3);
+}
+
+.cell[data-empty='true'] {
+  background: transparent;
+  border: 1px dashed var(--line);
+  cursor: default;
+  color: var(--ink-4);
+}
+.cell[data-empty='true']:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.pad {
+  visibility: hidden;
+}
+
+.dayNum {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cellFoot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.cellPct {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.cellNote {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.nightBadge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--below);
+  color: #fff;
+}
+
+.nightBadge[data-strength='mid'] {
+  background: var(--below-soft);
+  color: var(--below);
+}
+
+/* ---------- 범례 ---------- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.legendScale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendScale i {
+  width: 22px;
+  height: 14px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatchHatch {
+  width: 22px;
+  height: 14px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(135deg, var(--surface) 0 3px, var(--line-strong) 3px 6px);
+}
+
+/* ---------- 상세 ---------- */
+.detail {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.partHead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-muted);
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+}
+
+.partLegend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.partLegend b {
+  font-family: var(--mono);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chartAxis {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ink-3);
+}
+
+@media (max-width: 1080px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .detail {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cell {
+    min-height: 52px;
+    padding: 5px;
+  }
+  .cellNote,
+  .nightBadge {
+    display: none;
+  }
+  .cellPct {
+    font-size: 12px;
+  }
+}
