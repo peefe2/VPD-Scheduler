@@ -137,22 +137,17 @@
   font-weight: 500;
 }
 
-.nightBadge {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--below);
-  color: #fff;
+.cellBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.nightBadge[data-strength='mid'] {
-  background: var(--below-soft);
-  color: var(--below);
+.nightLine {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 /* ---------- 범례 ---------- */
@@ -270,7 +265,7 @@
     padding: 5px;
   }
   .cellNote,
-  .nightBadge {
+  .nightLine {
     display: none;
   }
   .cellPct {

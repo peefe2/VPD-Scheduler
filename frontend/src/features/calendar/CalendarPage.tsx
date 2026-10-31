@@ -54,7 +54,9 @@ export function CalendarPage({ id }: { id: number }) {
     <>
       <PageHeader
         title="VPD 캘린더"
-        sub={`${gh?.name} · 적정 대역 ${cal.band.low}~${cal.band.high} kPa`}
+        sub={`${gh?.name} · 적정 대역 ${cal.band.low}~${cal.band.high} kPa${
+          cal.bands.length > 1 ? ' · 대역을 바꾼 적이 있어 날짜마다 그때 대역으로 판정합니다' : ''
+        }`}
         actions={
           <div className={s.monthNav}>
             <IconButton label="이전 달" onClick={() => go(-1)} disabled={month === months[0]}>

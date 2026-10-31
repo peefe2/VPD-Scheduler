@@ -1,9 +1,15 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, delete, select
 
+from app.bands import band_versions, record_band_change
 from app.db import get_session
 from app.forecast import loso_sources
 from app.models import (
+    AdviceDecision,
+    AdviceRecord,
+    BandVersion,
     Greenhouse,
     GreenhouseCreate,
     GreenhouseRead,
@@ -58,6 +64,7 @@ def update_greenhouse(
 ):
     greenhouse = get_greenhouse(greenhouse_id, session)
     changes = data.model_dump(exclude_unset=True)
+    band_apply = changes.pop("band_apply", "today")
     for key, value in changes.items():
         if value is None and key != "holdout_source":
             raise HTTPException(422, f"{key} cannot be null")
@@ -66,8 +73,12 @@ def update_greenhouse(
     high = changes.get("vpd_high", greenhouse.vpd_high)
     if low >= high:
         raise HTTPException(422, "vpd_low must be less than vpd_high")
+    if (low, high) != (greenhouse.vpd_low, greenhouse.vpd_high) or band_apply == "all":
+        # 온실 현지 날짜 = 서버 날짜로 본다 (측정 시각도 현지 시각, 타임존 없음)
+        record_band_change(session, greenhouse, low, high, band_apply, date.today())
     for key, value in changes.items():
-        setattr(greenhouse, key, value)
+        if key not in ("vpd_low", "vpd_high"):
+            setattr(greenhouse, key, value)
     session.add(greenhouse)
     session.commit()
     session.refresh(greenhouse)
@@ -77,6 +88,18 @@ def update_greenhouse(
 @router.delete("/{greenhouse_id}", status_code=204)
 def delete_greenhouse(greenhouse_id: int, session: Session = Depends(get_session)):
     greenhouse = get_greenhouse(greenhouse_id, session)
+    session.exec(delete(BandVersion).where(BandVersion.greenhouse_id == greenhouse_id))
+    advice_ids = select(AdviceRecord.id).where(AdviceRecord.greenhouse_id == greenhouse_id)
+    session.exec(delete(AdviceDecision).where(AdviceDecision.advice_id.in_(advice_ids)))
+    session.exec(delete(AdviceRecord).where(AdviceRecord.greenhouse_id == greenhouse_id))
     session.exec(delete(Reading).where(Reading.greenhouse_id == greenhouse_id))
     session.delete(greenhouse)
     session.commit()
+
+
+@router.get("/{greenhouse_id}/bands")
+def list_bands(greenhouse_id: int, session: Session = Depends(get_session)):
+    """대역 변경 이력. effective_from이 null이면 "처음부터"."""
+    gh = get_greenhouse(greenhouse_id, session)
+    return [{"effective_from": v[0].isoformat() if v[0] else None, "low": v[1], "high": v[2]}
+            for v in band_versions(session, gh)]

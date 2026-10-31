@@ -1,8 +1,7 @@
 import type { CalendarDay } from '../../api/types'
-import { Icon } from '../../components/Icon'
 import { monthRange, pct, WEEKDAYS } from '../../lib/format'
 import s from './calendar.module.css'
-import { level, LEVELS, nightStrength } from './scale'
+import { level, LEVELS } from './scale'
 
 export function MonthGrid({
   month,
@@ -41,10 +40,11 @@ export function MonthGrid({
             )
           }
           const insufficient = !d.daytime.sufficient
-          const night = nightStrength(d)
-          const label = insufficient
-            ? `${dayNum}일, 낮 데이터 부족`
-            : `${dayNum}일, 낮 대역 안 ${pct(d.daytime.in_band_ratio)}${night ? `, 밤 과습 ${pct(d.night.below_ratio)}` : ''}`
+          // 밤은 경고 배지 대신 과습 비율을 항상 숫자로 (2026-10-31). 밤 관측 10시간 미만이면 표시 안 함
+          const night = d.night.sufficient ? pct(d.night.below_ratio) : null
+          const label =
+            (insufficient ? `${dayNum}일, 낮 데이터 부족` : `${dayNum}일, 낮 대역 안 ${pct(d.daytime.in_band_ratio)}`) +
+            (night ? `, 밤 과습 ${night}` : ', 밤 데이터 부족')
           return (
             <button
               key={date}
@@ -57,22 +57,22 @@ export function MonthGrid({
               onClick={() => onSelect(date)}
             >
               <span className={s.dayNum}>{dayNum}</span>
-              {night && (
-                <span className={s.nightBadge} data-strength={night} aria-hidden="true">
-                  <Icon name="moon" size={13} />
+              <span className={s.cellBody}>
+                <span className={s.cellFoot}>
+                  {insufficient ? (
+                    <span className={s.cellNote}>데이터 부족</span>
+                  ) : (
+                    <>
+                      <span className={s.cellPct}>{pct(d.daytime.in_band_ratio)}</span>
+                      <span className={s.cellNote}>
+                        {d.daytime.hours_in_band}/{d.daytime.hours_observed}h
+                      </span>
+                    </>
+                  )}
                 </span>
-              )}
-              <span className={s.cellFoot}>
-                {insufficient ? (
-                  <span className={s.cellNote}>데이터 부족</span>
-                ) : (
-                  <>
-                    <span className={s.cellPct}>{pct(d.daytime.in_band_ratio)}</span>
-                    <span className={s.cellNote}>
-                      {d.daytime.hours_in_band}/{d.daytime.hours_observed}h
-                    </span>
-                  </>
-                )}
+                <span className={s.nightLine} aria-hidden="true">
+                  밤 {night ?? '–'}
+                </span>
               </span>
             </button>
           )
@@ -88,10 +88,8 @@ export function MonthGrid({
           <span className="mono">0 → 100%</span>
         </span>
         <span className={s.legendItem}>
-          <span className={s.nightBadge} style={{ position: 'static' }} aria-hidden="true">
-            <Icon name="moon" size={13} />
-          </span>
-          밤 과습(대역 아래) 75% 이상 · 연한 배지 50% 이상
+          <span className="mono">밤 87%</span> = 그날 밤(0~8시, 18~23시) 중 대역 아래(과습)였던 비율 · 관측 10시간
+          미만은 –
         </span>
         <span className={s.legendItem}>
           <span className={s.swatchHatch} aria-hidden="true" />낮 관측 6시간 미만

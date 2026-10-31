@@ -79,10 +79,11 @@ export function DayDetail({ id, day, cal }: { id: number; day: CalendarDay | und
         {isLoading || !readings ? (
           <Loading />
         ) : (
-          <DayChart readings={readings} low={cal.band.low} high={cal.band.high} daytime={cal.daytime_hours} />
+          <DayChart readings={readings} low={day.band.low} high={day.band.high} daytime={cal.daytime_hours} />
         )}
         <p className={hintClass} style={{ marginTop: 8 }}>
-          회색 띠는 낮(09~17시), 초록 띠는 적정 대역입니다. 측정이 없는 정시는 선을 끊었습니다.
+          회색 띠는 낮(09~17시), 초록 띠는 그날의 적정 대역({day.band.low}~{day.band.high} kPa)입니다. 측정이 없는
+          정시는 선을 끊었습니다.
         </p>
       </Card>
       <Card title="낮과 밤">

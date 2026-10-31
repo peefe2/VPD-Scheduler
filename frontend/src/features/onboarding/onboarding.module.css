@@ -282,3 +282,39 @@
     grid-template-columns: 1fr;
   }
 }
+
+.applyBox {
+  margin: 14px 0 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface-strong);
+}
+
+.applyLegend {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.applyOption {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.applyOption input {
+  margin-top: 4px;
+  accent-color: var(--brand-2);
+}
+
+.applyOption > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

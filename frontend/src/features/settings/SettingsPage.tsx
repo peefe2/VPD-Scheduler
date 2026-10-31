@@ -1,11 +1,12 @@
-import { useGreenhouse, useUpdateGreenhouse } from '../../api/hooks'
-import { Badge, Button, ButtonLink, Card, Notice, PageHeader } from '../../components/ui'
+import { useBands, useGreenhouse, useUpdateGreenhouse } from '../../api/hooks'
+import { Badge, Button, ButtonLink, Card, PageHeader } from '../../components/ui'
 import { GreenhouseForm } from '../onboarding/GreenhouseForm'
 import s from '../onboarding/onboarding.module.css'
 
 export function SettingsPage({ id }: { id: number }) {
   const { data: gh } = useGreenhouse(id)
   const update = useUpdateGreenhouse(id)
+  const { data: bands } = useBands(id)
   if (!gh) return null
 
   return (
@@ -17,8 +18,10 @@ export function SettingsPage({ id }: { id: number }) {
       />
       <div className={s.grid}>
         <GreenhouseForm
-          key={gh.id}
+          // 저장 후 새 값으로 폼을 다시 그려 "대역 바뀜" 표시가 남지 않게
+          key={`${gh.id}-${gh.vpd_low}-${gh.vpd_high}`}
           initial={gh}
+          askBandApply
           error={update.error}
           onSubmit={(data) => update.mutate(data)}
           footer={
@@ -38,9 +41,18 @@ export function SettingsPage({ id }: { id: number }) {
               CSV 더 올리기
             </ButtonLink>
           </Card>
-          <Notice>
-            대역을 바꾸면 지난 캘린더도 새 대역으로 다시 계산됩니다. 대역 변경 이력을 저장하는 기능은 아직 없습니다.
-          </Notice>
+          <Card title="대역 변경 이력" sub="캘린더는 날짜마다 그때 대역으로 판정합니다.">
+            <ul className={s.list}>
+              {(bands ?? []).map((b) => (
+                <li key={b.effective_from ?? 'start'}>
+                  <span className={s.listKey}>{b.effective_from ? `${b.effective_from}부터` : '처음부터'}</span>
+                  <span className={`${s.listVal} mono`}>
+                    {b.low}~{b.high} kPa
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
         </aside>
       </div>
     </>

@@ -5,9 +5,9 @@ import { CalendarPage } from '../features/calendar/CalendarPage'
 import { DataStep } from '../features/onboarding/DataStep'
 import { GreenhouseStep } from '../features/onboarding/GreenhouseStep'
 import { ReviewStep } from '../features/onboarding/ReviewStep'
-import { RequiresApi } from '../features/placeholder/RequiresApi'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { TodayPage } from '../features/today/TodayPage'
+import { AdvisorPage } from '../features/advisor/AdvisorPage'
 import { TrustPage } from '../features/trust/TrustPage'
 import { Layout } from './Layout'
 
@@ -41,7 +41,7 @@ export function App() {
           <Route path="trust" element={<WithGreenhouse render={(id) => <TrustPage id={id} />} />} />
           <Route path="settings" element={<WithGreenhouse render={(id) => <SettingsPage id={id} />} />} />
           <Route path="today" element={<WithGreenhouse render={(id) => <TodayPage id={id} />} />} />
-          <Route path="advisor" element={<RequiresApi title="AI 어드바이저" />} />
+          <Route path="advisor" element={<WithGreenhouse render={(id) => <AdvisorPage id={id} />} />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

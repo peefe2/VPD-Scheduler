@@ -18,6 +18,14 @@ export interface GreenhouseInput {
   equipment: Equipment[]
   connection_type: ConnectionType
   holdout_source?: string | null
+  // 대역을 바꿀 때만: "today" 오늘부터 적용(지난 캘린더 유지), "all" 처음부터 적용(정정)
+  band_apply?: 'today' | 'all'
+}
+
+export interface BandVersion {
+  effective_from: string | null // null = 처음부터
+  low: number
+  high: number
 }
 
 export interface Greenhouse extends GreenhouseInput {
@@ -95,6 +103,7 @@ export interface DayPart {
 
 export interface CalendarDay {
   date: string
+  band: { low: number; high: number } // 그날 유효했던 대역
   hours_observed: number
   hours_in_band: number
   hours_below: number
@@ -110,6 +119,7 @@ export interface CalendarDay {
 export interface CalendarResponse {
   greenhouse_id: number
   band: { low: number; high: number }
+  bands: BandVersion[]
   daytime_hours: [number, number]
   min_hours: { daytime: number; night: number }
   days: CalendarDay[]
@@ -153,4 +163,64 @@ export interface TodayResponse {
   run_hours: number
   basis: 'model' | 'persistence' | null
   forecasts: TodayForecast[]
+}
+
+export type AdviceDecision = 'done' | 'skipped'
+
+export interface AdviceCandidate {
+  index: number
+  equipment: Equipment | null
+  title: string
+  reason: string
+  decision: AdviceDecision | null
+}
+
+export interface FactSheet {
+  greenhouse: { name: string; crop: string; band: { low: number; high: number }; equipment: Equipment[] }
+  observed_at: string
+  current: {
+    vpd: number
+    temperature: number
+    humidity: number
+    co2: number | null
+    band_status: BandStatus
+    run_hours: number
+  }
+  forecasts: { horizon: 1 | 3 | 6; vpd: number; band_status: BandStatus; reference: boolean }[]
+  mode: 'model' | 'persistence'
+}
+
+export type AdviceResponse =
+  | { available: false; reason: string }
+  | {
+      available: true
+      advice_id: number
+      observed_at: string
+      mode: 'model' | 'persistence'
+      source: 'rule' | 'llm'
+      summary: string
+      fact_sheet: FactSheet
+      candidates: AdviceCandidate[]
+      guardrail: { passed: boolean; violations: string[]; fallback_reason: string }
+    }
+
+export interface AdviceLog {
+  advice_id: number
+  observed_at: string
+  title: string
+  equipment: Equipment | null
+  decision: AdviceDecision
+  decided_at: string
+  source: 'rule' | 'llm'
+  vpd_at: number
+  status_at: BandStatus
+  vpd_after_2h: number | null
+  status_after_2h: BandStatus | null
+}
+
+export interface AskResponse {
+  answer: string
+  source: 'rule' | 'llm'
+  note?: string
+  violations: string[]
 }

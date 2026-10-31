@@ -1,4 +1,4 @@
-import { useGreenhouse, useReadingsRange, useToday } from '../../api/hooks'
+import { useAdvice, useGreenhouse, useReadingsRange, useToday } from '../../api/hooks'
 import type { TodayForecast, TodayResponse } from '../../api/types'
 import { StateBadge } from '../../components/StateBadge'
 import { Badge, ButtonLink, Card, Empty, ErrorState, Loading, Notice, PageHeader } from '../../components/ui'
@@ -47,6 +47,33 @@ function ForecastCard({ f }: { f: TodayForecast }) {
       </span>
       {f.note && <span className={s.hzMeta}>{f.note}</span>}
     </div>
+  )
+}
+
+// 최우선 추천 1개만 압축해서 보여준다. 실행 버튼은 어드바이저 화면에만 둔다 (CLAUDE.md 결정 2026-10-11).
+function TopAdvice({ id }: { id: number }) {
+  const { data: advice } = useAdvice(id)
+  const top = advice?.available ? advice.candidates[0] : null
+  return (
+    <Card
+      title="AI 어드바이저"
+      action={advice?.available && <Badge>{advice.source === 'llm' ? 'AI 답변' : '규칙 기반'}</Badge>}
+    >
+      {top ? (
+        <>
+          <p className={s.adviceTitle}>{top.title}</p>
+          <p className={hintClass}>{top.reason}</p>
+          {advice?.available && <p className={hintClass} style={{ marginTop: 6 }}>{advice.summary}</p>}
+        </>
+      ) : (
+        <p className={hintClass}>{advice && !advice.available ? advice.reason : '불러오는 중'}</p>
+      )}
+      <div style={{ marginTop: 12 }}>
+        <ButtonLink to={`/g/${id}/advisor`} variant="secondary">
+          후보 전체 보기
+        </ButtonLink>
+      </div>
+    </Card>
   )
 }
 
@@ -193,16 +220,7 @@ export function TodayPage({ id }: { id: number }) {
             <RecentChart readings={readings} end={latest.hour} low={t.band.low} high={t.band.high} daytime={DAYTIME} />
           )}
         </Card>
-        <Card title="AI 어드바이저" action={<Badge>준비 중</Badge>}>
-          <p className={hintClass}>
-            등록한 설비 안에서 조치 후보와 이유를 어드바이저 화면에서 보여줄 예정입니다. 실행 여부는 항상 사람이 정합니다.
-          </p>
-          <div style={{ marginTop: 12 }}>
-            <ButtonLink to={`/g/${id}/advisor`} variant="secondary">
-              어드바이저 열기
-            </ButtonLink>
-          </div>
-        </Card>
+        <TopAdvice id={id} />
       </div>
     </>
   )

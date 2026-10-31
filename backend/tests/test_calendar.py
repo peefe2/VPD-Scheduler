@@ -57,7 +57,8 @@ def test_calendar_endpoint_uses_greenhouse_band_and_range(client):  # noqa: F811
     assert body["days"][0]["night"]["hours_observed"] == 15
     assert body["days"][0]["daytime"]["sufficient"] is True
 
-    client.patch(f"/greenhouses/{gh['id']}", json={"vpd_high": 1.5})
+    # 정정(처음부터 적용)이면 지난 날짜도 새 대역으로
+    client.patch(f"/greenhouses/{gh['id']}", json={"vpd_high": 1.5, "band_apply": "all"})
     body = client.get(f"/greenhouses/{gh['id']}/calendar", params={"start": "2026-10-02", "end": "2026-10-02"}).json()
     assert [d["date"] for d in body["days"]] == ["2026-10-02"]
     assert body["days"][0]["hours_in_band"] == 24 and body["days"][0]["daytime"]["in_band_ratio"] == 1.0
@@ -97,3 +98,54 @@ def test_readings_endpoint_range_and_gaps(client):  # noqa: F811
     assert body[0]["co2"] is None
     too_long = client.get(f"/greenhouses/{gh['id']}/readings", params={"start": "2026-01-01", "end": "2026-03-01"})
     assert too_long.status_code == 422
+
+
+def test_band_change_keeps_past_days(client, monkeypatch):  # noqa: F811
+    import datetime as dt
+
+    import app.routers.greenhouses as ghr
+
+    class FakeDate(dt.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 10, 2)
+
+    monkeypatch.setattr(ghr, "date", FakeDate)
+    gh = client.post("/greenhouses", json={"name": "1동", "crop": "토마토", "vpd_low": 0.8, "vpd_high": 1.2}).json()
+    rows = ["t,T,RH"] + [f"2026-10-0{d} {h:02d}:00,25,60" for d in (1, 2, 3) for h in range(24)]  # VPD ≈ 1.27
+    client.post(f"/greenhouses/{gh['id']}/csv/import", files=upload("\n".join(rows)),
+                data={"mapping": json.dumps({"timestamp": "t", "temperature": "T", "humidity": "RH"})})
+
+    client.patch(f"/greenhouses/{gh['id']}", json={"vpd_high": 1.5})  # 기본: 10-02부터 적용
+    body = client.get(f"/greenhouses/{gh['id']}/calendar").json()
+    by_date = {d["date"]: d for d in body["days"]}
+    assert by_date["2026-10-01"]["band"] == {"low": 0.8, "high": 1.2}
+    assert by_date["2026-10-01"]["hours_in_band"] == 0  # 지난 날은 그때 대역 그대로
+    assert by_date["2026-10-02"]["hours_in_band"] == 24
+    assert by_date["2026-10-03"]["band"]["high"] == 1.5
+    assert body["band"] == {"low": 0.8, "high": 1.5}
+    assert body["bands"] == [
+        {"effective_from": None, "low": 0.8, "high": 1.2},
+        {"effective_from": "2026-10-02", "low": 0.8, "high": 1.5},
+    ]
+
+    # 같은 날 다시 바꾸면 그날 버전만 갱신
+    client.patch(f"/greenhouses/{gh['id']}", json={"vpd_low": 0.6})
+    bands = client.get(f"/greenhouses/{gh['id']}/bands").json()
+    assert bands[-1] == {"effective_from": "2026-10-02", "low": 0.6, "high": 1.5} and len(bands) == 2
+
+    # 대역 외 항목만 바꾸면 이력이 늘지 않음
+    client.patch(f"/greenhouses/{gh['id']}", json={"name": "1동 토마토"})
+    assert len(client.get(f"/greenhouses/{gh['id']}/bands").json()) == 2
+
+    # 정정: 이력을 지우고 하나로
+    client.patch(f"/greenhouses/{gh['id']}", json={"vpd_low": 0.5, "band_apply": "all"})
+    assert client.get(f"/greenhouses/{gh['id']}/bands").json() == [{"effective_from": None, "low": 0.5, "high": 1.5}]
+    assert client.delete(f"/greenhouses/{gh['id']}").status_code == 204
+
+
+def test_daily_summary_per_hour_band_series():
+    s = series([1.0] * 48)
+    low = pd.Series([0.5] * 24 + [1.1] * 24, index=s.index)
+    out = daily_summary(s, low, 1.5)
+    assert list(out.in_band) == [24, 0] and list(out.band_low) == [0.5, 1.1]

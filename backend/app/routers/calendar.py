@@ -5,6 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
+from app.bands import band_series, band_versions
 from app.calendar import DAYTIME_HOURS, MIN_DAY_HOURS, MIN_NIGHT_HOURS, daily_summary
 from app.db import get_session
 from app.models import Reading
@@ -37,10 +38,13 @@ def get_calendar(
     rows = session.exec(query).all()
     vpd = pd.Series([r.vpd for r in rows], index=pd.DatetimeIndex([r.hour for r in rows]), dtype=float)
 
-    summary = daily_summary(vpd, greenhouse.vpd_low, greenhouse.vpd_high)
+    versions = band_versions(session, greenhouse)
+    low, high = band_series(vpd.index, versions)
+    summary = daily_summary(vpd, low, high)
     days = [
         {
             "date": d.date().isoformat(),
+            "band": {"low": float(r.band_low), "high": float(r.band_high)},  # 그날 유효했던 대역
             "hours_observed": int(r.observed),
             "hours_in_band": int(r.in_band),
             "hours_below": int(r.below),
@@ -72,8 +76,10 @@ def get_calendar(
     ]
     return {
         "greenhouse_id": greenhouse_id,
-        # 회고도 현재 등록된 대역 기준으로 계산한다 (대역 변경 이력은 저장하지 않음)
+        # 현재 대역. 날짜별 판정은 각 day.band(그날 유효했던 버전)로 한다
         "band": {"low": greenhouse.vpd_low, "high": greenhouse.vpd_high},
+        "bands": [{"effective_from": v[0].isoformat() if v[0] else None, "low": v[1], "high": v[2]}
+                  for v in versions],
         "daytime_hours": [DAYTIME_HOURS.start, DAYTIME_HOURS.stop - 1],
         "min_hours": {"daytime": MIN_DAY_HOURS, "night": MIN_NIGHT_HOURS},
         "days": days,

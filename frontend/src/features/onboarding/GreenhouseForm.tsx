@@ -13,16 +13,19 @@ export function GreenhouseForm({
   error,
   onSubmit,
   footer,
+  askBandApply = false,
 }: {
   initial: GreenhouseInput
   error?: unknown
   onSubmit: (data: GreenhouseInput) => void
   footer: ReactNode
+  askBandApply?: boolean // 설정 화면: 대역을 바꾸면 적용 시점을 묻는다
 }) {
   const [form, setForm] = useState(initial)
   const [submitted, setSubmitted] = useState(false)
   const [low, setLow] = useState(String(initial.vpd_low))
   const [high, setHigh] = useState(String(initial.vpd_high))
+  const [bandApply, setBandApply] = useState<'today' | 'all'>('today')
   const { data: sources } = useTrainingSources()
 
   const lo = Number(low)
@@ -47,7 +50,14 @@ export function GreenhouseForm({
     e.preventDefault()
     setSubmitted(true)
     if (bandError || nameError) return
-    onSubmit({ ...form, name: form.name.trim(), vpd_low: lo, vpd_high: hi })
+    const bandChanged = lo !== initial.vpd_low || hi !== initial.vpd_high
+    onSubmit({
+      ...form,
+      name: form.name.trim(),
+      vpd_low: lo,
+      vpd_high: hi,
+      ...(askBandApply && bandChanged ? { band_apply: bandApply } : {}),
+    })
   }
 
   return (
@@ -109,6 +119,30 @@ export function GreenhouseForm({
           {bandError ??
             '기본값 0.5~1.5 kPa는 시설 채소의 주간 적정 범위로 보고된 값입니다. 작물과 시기에 맞게 바꿀 수 있습니다.'}
         </p>
+        {askBandApply && !bandError && (lo !== initial.vpd_low || hi !== initial.vpd_high) && (
+          <fieldset className={s.applyBox}>
+            <legend className={s.applyLegend}>바꾼 대역을 언제부터 적용할까요?</legend>
+            <label className={s.applyOption}>
+              <input
+                type="radio"
+                name="band-apply"
+                checked={bandApply === 'today'}
+                onChange={() => setBandApply('today')}
+              />
+              <span>
+                <strong>오늘부터</strong>
+                <span className={hintClass}>지난 캘린더는 그때 대역으로 그대로 둡니다.</span>
+              </span>
+            </label>
+            <label className={s.applyOption}>
+              <input type="radio" name="band-apply" checked={bandApply === 'all'} onChange={() => setBandApply('all')} />
+              <span>
+                <strong>처음부터 (정정)</strong>
+                <span className={hintClass}>잘못 입력한 값을 고칠 때. 지난 캘린더도 새 대역으로 다시 계산하고 이력을 지웁니다.</span>
+              </span>
+            </label>
+          </fieldset>
+        )}
       </Card>
 
       <Card title="보유 설비" sub="선택한 설비 안에서만 AI 어드바이저가 조치 후보를 제안합니다.">

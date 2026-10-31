@@ -1,4 +1,9 @@
 import type {
+  AdviceDecision,
+  BandVersion,
+  AdviceLog,
+  AdviceResponse,
+  AskResponse,
   Backtest,
   CalendarResponse,
   ColumnMapping,
@@ -47,6 +52,7 @@ export const api = {
   createGreenhouse: (data: GreenhouseInput) => request<Greenhouse>('/greenhouses', json('POST', data)),
   updateGreenhouse: (id: number, data: Partial<GreenhouseInput>) =>
     request<Greenhouse>(`/greenhouses/${id}`, json('PATCH', data)),
+  bands: (id: number) => request<BandVersion[]>(`/greenhouses/${id}/bands`),
   trainingSources: () => request<string[]>('/greenhouses/training-sources'),
 
   previewCsv: (id: number, file: File) => {
@@ -65,6 +71,14 @@ export const api = {
     request<HourlyReading[]>(`/greenhouses/${id}/readings?start=${start}&end=${end}`),
   backtest: (id: number) => request<Backtest>(`/greenhouses/${id}/backtest`),
   today: (id: number) => request<TodayResponse>(`/greenhouses/${id}/today`),
+  advice: (id: number) => request<AdviceResponse>(`/greenhouses/${id}/advisor`),
+  decide: (id: number, adviceId: number, candidateIndex: number, decision: AdviceDecision | null) =>
+    request<{ advice_id: number; decisions: Record<string, AdviceDecision> }>(
+      `/greenhouses/${id}/advisor/${adviceId}/decisions`,
+      json('POST', { candidate_index: candidateIndex, decision }),
+    ),
+  adviceLogs: (id: number) => request<AdviceLog[]>(`/greenhouses/${id}/advisor/logs`),
+  ask: (id: number, question: string) => request<AskResponse>(`/greenhouses/${id}/advisor/ask`, json('POST', { question })),
   calendar: (id: number, start?: string, end?: string) => {
     const q = new URLSearchParams()
     if (start) q.set('start', start)

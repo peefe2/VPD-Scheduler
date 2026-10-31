@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import NaiveDatetime, model_validator
 from sqlalchemy import JSON, Column, UniqueConstraint
@@ -62,6 +63,9 @@ class GreenhouseUpdate(SQLModel):
     equipment: list[Equipment] | None = None
     connection_type: ConnectionType | None = None
     holdout_source: str | None = Field(default=None, max_length=50)
+    # 대역을 바꿀 때만 쓴다. "today": 오늘부터 적용(지난 캘린더 유지),
+    # "all": 처음부터 적용(잘못 입력한 값 정정 — 이전 이력을 지운다)
+    band_apply: Literal["today", "all"] = "today"
 
 
 class GreenhouseRead(GreenhouseBase):
@@ -86,3 +90,50 @@ class Reading(SQLModel, table=True):
     humidity: float
     co2: float | None = None
     vpd: float
+
+
+class AdviceRecord(SQLModel, table=True):
+    """어드바이저 추천 1건 = 온실 × 정시. 그때의 사실 시트와 후보를 그대로 남긴다.
+
+    2시간 뒤 VPD는 저장하지 않고 조회할 때 실측(Reading)에서 붙인다 — 정시 값이
+    나중에 교체되면 그 값을 따른다.
+    """
+
+    __table_args__ = (UniqueConstraint("greenhouse_id", "hour"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    greenhouse_id: int = Field(foreign_key="greenhouse.id", index=True)
+    hour: NaiveDatetime  # 사실 시트 기준 정시 (온실 현지 시각)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    source: str  # "rule" | "llm"
+    candidates: list[dict] = Field(sa_column=Column(JSON))
+    fact_sheet: dict = Field(sa_column=Column(JSON))
+
+
+class AdviceDecision(SQLModel, table=True):
+    """후보별 "실행함"/"이번엔 안 함". 같은 후보를 다시 누르면 바꾼다. 설비 명령이 아니다."""
+
+    __table_args__ = (UniqueConstraint("advice_id", "candidate_index"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    advice_id: int = Field(foreign_key="advicerecord.id", index=True)
+    candidate_index: int
+    decision: str  # "done" | "skipped"
+    decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class BandVersion(SQLModel, table=True):
+    """적정 대역 변경 이력 (결정 2026-10-12, 구현 2026-10-31).
+
+    effective_from부터 다음 버전 전날까지 그 대역으로 캘린더를 판정한다. None은 "처음부터"
+    (가장 이른 데이터 날짜부터). 이력이 하나도 없는 온실은 현재 대역을 처음부터로 본다.
+    """
+
+    __table_args__ = (UniqueConstraint("greenhouse_id", "effective_from"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    greenhouse_id: int = Field(foreign_key="greenhouse.id", index=True)
+    effective_from: date | None = None  # 온실 현지 날짜
+    vpd_low: float
+    vpd_high: float
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
