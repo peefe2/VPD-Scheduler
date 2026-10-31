@@ -6,13 +6,17 @@
 - 자유 질문 답변에도 같은 가드레일을 적용한다.
 - 조치 기록에는 후보·선택·시각·사실 시트 스냅샷을 남기고, 2시간 뒤 VPD는 실측에서 붙인다.
 
-지금은 LLM이 연결되지 않았다(`generate_with_llm`이 None). 후보는 항상 규칙으로 만들고,
-LLM이 붙어도 출력은 `check_text`를 통과해야 하며 실패하면 규칙 후보로 대체한다.
+LLM은 Gemini (결정 2026-10-31, 무료 등급). 기본은 꺼져 있고 `VPD_ADVISOR_LLM=1`일 때만 부른다.
+LLM 출력은 가드레일을 통과해야 쓰이고, 호출 실패나 위반이면 규칙 후보로 대체한다.
 자동 제어는 없다 — 후보는 사람이 판단할 "방안"일 뿐이다.
 """
 
+import json
+import os
 import re
 from dataclasses import dataclass, field
+
+from pydantic import BaseModel, ValidationError
 
 MAX_CANDIDATES = 3
 
@@ -32,6 +36,8 @@ GENERIC_VENT = "환기"
 BANNED_PHRASES = ["자동으로", "자동 제어", "정확히", "정확하게", "예고", "반드시", "보장"]
 
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# 한자·가나·낱자 자모(ㅇㅈㅈ). 작은 모델이 가끔 이런 깨진 글자를 섞어 낸다 (2026-11-01 실측)
+GARBLED = re.compile(r"[\u3131-\u318e\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
 
 # ---------------------------------------------------------------- 사실 시트
@@ -124,6 +130,8 @@ def check_text(text: str, fact: dict) -> Check:
     for phrase in BANNED_PHRASES:
         if phrase in text:
             violations.append(f"금지 표현: {phrase}")
+    if GARBLED.search(text):
+        violations.insert(0, "깨진 글자")
     return Check(not violations, violations)
 
 
@@ -197,17 +205,110 @@ def rule_candidates(fact: dict) -> list[dict]:
     return out[:MAX_CANDIDATES]
 
 
-# ---------------------------------------------------------------- LLM 자리
+# ---------------------------------------------------------------- LLM (Gemini)
+# 비용·키 없이도 서비스가 완결되도록 기본은 꺼져 있다. VPD_ADVISOR_LLM=1이고 GEMINI_API_KEY가
+# 있을 때만 부른다. 실패(키·네트워크·타임아웃·형식)는 모두 LLMError → 규칙 기반 안내로 대체.
+
+LLM_ENV = "VPD_ADVISOR_LLM"
+MODEL_ENV = "VPD_ADVISOR_MODEL"
+# 무료 등급 모델. gemini-3.8-flash는 구조화 출력에서 90초 넘게 걸려 시간 초과 (2026-11-01 실측,
+# flash-lite는 약 4초)
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
+TIMEOUT_SECONDS = 20.0
+LLM_FAILED = "AI 응답을 받지 못해 규칙 기반 안내로 대체했습니다."
+GUARDRAIL_FAILED = "AI 답변이 가드레일을 통과하지 못해 규칙 기반 안내로 대체했습니다."
+
+CONTRACT = """\
+너는 스마트팜 온실의 VPD(수증기압차) 관리 도우미다. 입력은 서버가 계산한 "사실 시트" JSON이다.
+반드시 지킬 것:
+- 숫자는 사실 시트에 있는 값만 쓴다. 습도·온도 목표값, 설정값, 시간, 횟수 같은 새 숫자를 만들지 않는다.
+- 설비는 사실 시트 greenhouse.equipment에 등록된 것만 언급한다. 코드값 뜻: vent=천창·측창,
+  exhaust_fan=환기팬, shade_screen=차광막, humidifier=가습, dehumidifier=제습기, heater=난방.
+  등록되지 않은 설비는 이름도 꺼내지 않는다.
+- current.band_status 뜻: below=대역 아래(VPD가 낮음, 과습 쪽), above=대역 위(VPD가 높음, 건조 쪽),
+  in=대역 안. in이면 지켜보기를 먼저 권하고, forecasts에서 대역을 벗어나는 지평이 있을 때만
+  그 방향의 조치를 검토 방안으로 낸다. 사실 시트에 없는 상태(습도가 높다 등)를 지어내지 않는다.
+- VPD가 대역을 벗어나는 시각이나 시점을 예측하거나 단정하지 않는다.
+- 다음 표현은 쓰지 않는다: 자동으로, 자동 제어, 정확히, 정확하게, 예고, 반드시, 보장.
+- 너는 설비를 제어하지 않는다. 사람이 판단할 "방안"으로만 말한다.
+- 한국어로, 짧고 쉽게 쓴다."""
+
+CANDIDATES_PROMPT = CONTRACT + """
+지금 상황에서 사람이 검토할 조치 후보를 1~3개 고른다. equipment는 등록된 설비 코드 하나 또는
+설비가 필요 없는 후보(지켜보기 등)면 null. title은 20자 안팎, reason은 한두 문장."""
+
+ANSWER_PROMPT = CONTRACT + """
+사용자 질문에 사실 시트만 근거로 2~4문장으로 답한다. 사실 시트로 답할 수 없는 질문이면 그렇다고 말한다."""
+
+
+class LLMCandidate(BaseModel):
+    equipment: str | None
+    title: str
+    reason: str
+
+
+class LLMCandidates(BaseModel):
+    candidates: list[LLMCandidate]
+
+
+class LLMError(Exception):
+    """LLM을 불렀지만 쓸 수 있는 답을 받지 못함."""
+
+
+def llm_client():
+    """켜져 있으면 Gemini 클라이언트, 아니면 None. 키는 GEMINI_API_KEY 환경변수에서 읽는다."""
+    if os.environ.get(LLM_ENV) != "1":
+        return None
+    from google import genai
+
+    try:
+        return genai.Client()
+    except ValueError as e:  # 키 없음
+        raise LLMError(str(e)) from e
+
+
+def _ask_gemini(client, system: str, user: str, schema: dict | None = None) -> str:
+    extra = {"response_format": {"type": "text", "mime_type": "application/json", "schema": schema}} if schema else {}
+    try:
+        result = client.interactions.create(
+            model=os.environ.get(MODEL_ENV, DEFAULT_MODEL),
+            system_instruction=system,
+            input=user,
+            timeout=TIMEOUT_SECONDS,
+            **extra,
+        )
+    # Interactions API는 google.genai.errors가 아니라 비공개 모듈(google.genai._gaos)의 예외를
+    # 던진다 (2.34.0). 비공개 경로를 import하면 SDK 업데이트 때 앱이 뜨지 않을 수 있어서, SDK
+    # 호출에서 나는 예외는 모두 규칙 기반 대체로 돌린다 — LLM은 없어도 되는 부가 기능이다.
+    except Exception as e:
+        raise LLMError(str(e)) from e
+    if result.status != "completed" or not result.output_text:
+        raise LLMError(f"interaction status {result.status}")
+    return result.output_text
+
 
 def generate_with_llm(fact: dict) -> list[dict] | None:
-    """LLM 연동 자리 (미연결). 연결되면 사실 시트와 등록 설비만 넘기고, 출력은 반드시
-    check_candidates를 통과해야 한다. persistence 모드에서는 호출하지 않는다."""
-    return None
+    """사실 시트만 넘겨 후보를 받는다. 꺼져 있으면 None. 출력은 make_advice에서
+    check_candidates를 통과해야 쓰인다. persistence 모드에서는 호출하지 않는다."""
+    client = llm_client()
+    if client is None:
+        return None
+    text = _ask_gemini(client, CANDIDATES_PROMPT, json.dumps(fact, ensure_ascii=False),
+                       LLMCandidates.model_json_schema())
+    try:
+        parsed = LLMCandidates.model_validate_json(text)
+    except ValidationError as e:
+        raise LLMError(str(e)) from e
+    return [c.model_dump() for c in parsed.candidates][:MAX_CANDIDATES]
 
 
 def answer_with_llm(question: str, fact: dict) -> str | None:
-    """자유 질문 LLM 연동 자리 (미연결)."""
-    return None
+    """자유 질문 답변. 꺼져 있으면 None. 출력은 check_text를 통과해야 쓰인다."""
+    client = llm_client()
+    if client is None:
+        return None
+    user = f"사실 시트:\n{json.dumps(fact, ensure_ascii=False)}\n\n질문: {question}"
+    return _ask_gemini(client, ANSWER_PROMPT, user).strip()
 
 
 @dataclass
@@ -221,31 +322,36 @@ class Advice:
 
 def make_advice(fact: dict) -> Advice:
     summary = situation(fact)  # 사실 시트 값만 쓰는 고정 문장
+    rules = rule_candidates(fact)
     if fact["mode"] == "model":
-        llm = generate_with_llm(fact)
+        try:
+            llm = generate_with_llm(fact)
+        except LLMError:
+            return Advice(summary, rules, "rule", check_candidates(rules, fact), LLM_FAILED)
         if llm is not None:
             check = check_candidates(llm, fact)
             if check.passed:
                 return Advice(summary, llm[:MAX_CANDIDATES], "llm", check)
-            rules = rule_candidates(fact)
-            return Advice(summary, rules, "rule", check_candidates(rules, fact),
-                          "AI 답변이 가드레일을 통과하지 못해 규칙 기반 안내로 대체했습니다.")
-    rules = rule_candidates(fact)
+            return Advice(summary, rules, "rule", check_candidates(rules, fact), GUARDRAIL_FAILED)
     return Advice(summary, rules, "rule", check_candidates(rules, fact))
 
 
 def answer_question(question: str, fact: dict) -> dict:
-    llm = answer_with_llm(question, fact) if fact["mode"] == "model" else None
+    llm, fallback, violations = None, "", []
+    if fact["mode"] == "model":
+        try:
+            llm = answer_with_llm(question, fact)
+        except LLMError:
+            fallback = LLM_FAILED
     if llm is not None:
         check = check_text(llm, fact)
         if check.passed:
             return {"answer": llm, "source": "llm", "violations": []}
-        fallback = "AI 답변이 가드레일을 통과하지 못해 규칙 기반 안내로 대체했습니다."
+        fallback = GUARDRAIL_FAILED
         violations = check.violations
-    else:
-        fallback = ("AI 답변은 아직 연결되지 않았습니다." if fact["mode"] == "model"
+    elif not fallback:
+        fallback = ("AI 답변이 꺼져 있어 규칙 기반 안내를 드립니다." if fact["mode"] == "model"
                     else "모델이 이 온실에서 아직 검증되지 않아 규칙 기반 안내만 드립니다.")
-        violations = []
     top = rule_candidates(fact)[0]
     return {"answer": f"{situation(fact)} 가능한 방안: {top['title']}. {top['reason']}", "source": "rule",
             "note": fallback, "violations": violations}

@@ -43,6 +43,15 @@ def test_banned_phrases_blocked():
         assert not check_text(text, f).passed
 
 
+def test_garbled_text_blocked():
+    # gemini-3.5-flash-lite가 실제로 낸 깨진 출력 (2026-11-01)
+    f = fact(status="in", vpd=0.9)
+    for text in ("怄木 ㅇㅈㅈ", "怨案 ㅇㅈㅈ 怨案 ㅇㅈㅈ.", "怄數 지켜보기", "ㅇㅈㅈ 지켜보기", "現在 상태 유지"):
+        res = check_text(text, f)
+        assert not res.passed and "깨진 글자" in res.violations[0], text
+    assert check_text("천창·측창 열기 검토 → 지켜보기", f).passed
+
+
 def test_candidate_equipment_field_checked():
     f = fact(equipment=["heater"])
     res = check_candidates([{"equipment": "humidifier", "title": "검토", "reason": "방안"}], f)

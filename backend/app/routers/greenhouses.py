@@ -14,6 +14,7 @@ from app.models import (
     GreenhouseCreate,
     GreenhouseRead,
     GreenhouseUpdate,
+    IngestToken,
     Reading,
 )
 
@@ -89,6 +90,7 @@ def update_greenhouse(
 def delete_greenhouse(greenhouse_id: int, session: Session = Depends(get_session)):
     greenhouse = get_greenhouse(greenhouse_id, session)
     session.exec(delete(BandVersion).where(BandVersion.greenhouse_id == greenhouse_id))
+    session.exec(delete(IngestToken).where(IngestToken.greenhouse_id == greenhouse_id))
     advice_ids = select(AdviceRecord.id).where(AdviceRecord.greenhouse_id == greenhouse_id)
     session.exec(delete(AdviceDecision).where(AdviceDecision.advice_id.in_(advice_ids)))
     session.exec(delete(AdviceRecord).where(AdviceRecord.greenhouse_id == greenhouse_id))

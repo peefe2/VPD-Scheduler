@@ -38,7 +38,8 @@ def _decisions(session: Session, advice_id: int) -> dict[int, str]:
 @router.get("")
 def get_advice(greenhouse_id: int, session: Session = Depends(get_session)):
     """현재 정시 기준 조치 후보. 같은 정시에 다시 부르면 저장된 후보를 그대로 준다
-    (기록과 화면이 어긋나지 않게). 아직 아무 선택이 없으면 설비 변경 등을 반영해 새로 만든다."""
+    (기록과 화면이 어긋나지 않게). 아직 아무 선택이 없고 사실 시트(설비·대역 등)가 바뀌었으면
+    새로 만든다. 화면이 1분마다 다시 부르므로, 같은 사실 시트로는 LLM을 다시 부르지 않는다."""
     gh = get_greenhouse(greenhouse_id, session)
     fact, reason = _fact_or_reason(session, gh)
     if fact is None:
@@ -48,15 +49,15 @@ def get_advice(greenhouse_id: int, session: Session = Depends(get_session)):
     record = session.exec(
         select(AdviceRecord).where(AdviceRecord.greenhouse_id == gh.id, AdviceRecord.hour == hour)
     ).first()
-    advice = make_advice(fact)
-    if record is None:
-        record = AdviceRecord(greenhouse_id=gh.id, hour=hour, source=advice.source,
-                              candidates=advice.candidates, fact_sheet=fact)
-    elif not _decisions(session, record.id):
+    if record is None or (record.fact_sheet != fact and not _decisions(session, record.id)):
+        advice = make_advice(fact)
+        record = record or AdviceRecord(greenhouse_id=gh.id, hour=hour, source="", candidates=[], fact_sheet={})
         record.source, record.candidates, record.fact_sheet = advice.source, advice.candidates, fact
-    session.add(record)
-    session.commit()
-    session.refresh(record)
+        record.guardrail = {"passed": advice.check.passed, "violations": advice.check.violations,
+                            "fallback_reason": advice.fallback_reason}
+        session.add(record)
+        session.commit()
+        session.refresh(record)
 
     decided = _decisions(session, record.id)
     return {
@@ -68,8 +69,8 @@ def get_advice(greenhouse_id: int, session: Session = Depends(get_session)):
         "summary": situation(record.fact_sheet),
         "fact_sheet": record.fact_sheet,
         "candidates": [{**c, "index": i, "decision": decided.get(i)} for i, c in enumerate(record.candidates)],
-        "guardrail": {"passed": advice.check.passed, "violations": advice.check.violations,
-                      "fallback_reason": advice.fallback_reason},
+        # 이 컬럼이 생기기 전 기록(guardrail None)은 규칙 후보였으므로 통과로 본다
+        "guardrail": record.guardrail or {"passed": True, "violations": [], "fallback_reason": ""},
     }
 
 

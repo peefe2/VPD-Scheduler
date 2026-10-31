@@ -9,6 +9,7 @@ dependencies = [
     "pandas>=2.2",
     "python-multipart>=0.0.9",
     "lightgbm>=4.7.0",
+    "google-genai>=2.34.0",
 ]
 
 [dependency-groups]

@@ -90,6 +90,18 @@ export function useUpdateGreenhouse(id: number) {
   })
 }
 
+export const useIngestToken = (id: number) =>
+  useQuery({ queryKey: ['greenhouses', id, 'ingest-token'], queryFn: () => api.ingestToken(id) })
+
+// 원문 토큰은 이 응답에만 있다 — 화면을 떠나면 다시 볼 수 없다
+export function useIssueIngestToken(id: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.issueIngestToken(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['greenhouses', id, 'ingest-token'] }),
+  })
+}
+
 export function useImportCsv(id: number) {
   const qc = useQueryClient()
   return useMutation({

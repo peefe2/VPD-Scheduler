@@ -108,6 +108,9 @@ class AdviceRecord(SQLModel, table=True):
     source: str  # "rule" | "llm"
     candidates: list[dict] = Field(sa_column=Column(JSON))
     fact_sheet: dict = Field(sa_column=Column(JSON))
+    # 만들 때의 가드레일 결과 {passed, violations, fallback_reason}. 다시 조회할 때도 대체 사유를
+    # 보여주려고 저장한다. 이 컬럼이 생기기 전 기록은 None (db.ensure_columns가 컬럼을 더함)
+    guardrail: dict | None = Field(default=None, sa_column=Column(JSON))
 
 
 class AdviceDecision(SQLModel, table=True):
@@ -120,6 +123,19 @@ class AdviceDecision(SQLModel, table=True):
     candidate_index: int
     decision: str  # "done" | "skipped"
     decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class IngestToken(SQLModel, table=True):
+    """수집 API 토큰 (온실당 1개). 원문은 발급할 때 한 번만 보여주고 SHA-256 해시만 저장한다.
+
+    Greenhouse 컬럼이 아니라 별도 테이블인 이유: DB를 create_all로만 만들어서 기존 테이블에
+    컬럼을 더하면 이미 있는 vpd.db에 반영되지 않는다. 새 테이블은 기존 DB에도 생긴다.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    greenhouse_id: int = Field(foreign_key="greenhouse.id", unique=True, index=True)
+    token_hash: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BandVersion(SQLModel, table=True):

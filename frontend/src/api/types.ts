@@ -218,6 +218,16 @@ export interface AdviceLog {
   status_after_2h: BandStatus | null
 }
 
+export interface IngestTokenStatus {
+  issued: boolean
+  created_at: string | null
+}
+
+export interface IssuedIngestToken {
+  token: string
+  created_at: string
+}
+
 export interface AskResponse {
   answer: string
   source: 'rule' | 'llm'

@@ -82,7 +82,10 @@ API_GH = {**GREENHOUSE, "connection_type": "api"}
 
 
 def post(client, gh_id, *ms):
-    return client.post(f"/greenhouses/{gh_id}/ingest", json={"measurements": list(ms)})
+    """토큰을 새로 발급해 보낸다 (CSV 온실은 발급이 409라 토큰 없이 보내서 409를 확인)."""
+    issued = client.post(f"/greenhouses/{gh_id}/ingest-token")
+    headers = {"Authorization": f"Bearer {issued.json()['token']}"} if issued.status_code == 200 else {}
+    return client.post(f"/greenhouses/{gh_id}/ingest", json={"measurements": list(ms)}, headers=headers)
 
 
 def m(at, t=25.0, rh=70.0, co2=None):

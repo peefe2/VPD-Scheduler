@@ -9,21 +9,67 @@ CSV 가져오기(`app/vpd.py: hourly_first`)와 같은 규칙을 한 건씩 적�
 
 수집 API(api)와 재생 모드(replay) 온실만 받는다. 재생 모드는 학습 온실 데이터를 흘려보내는
 시연용이라 holdout_source가 지정돼 있어야 한다 (in-sample 누수 방지, CLAUDE.md).
-인증은 아직 없다 (로컬 시연용).
+
+인증: 온실별 토큰을 `Authorization: Bearer <토큰>`으로 보내야 한다 (없거나 틀리면 401).
+토큰 발급 API를 포함한 웹 화면용 API에는 아직 로그인이 없다 — 센서 쪽 위조만 막는다.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import hashlib
+import hmac
+import secrets
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, NaiveDatetime
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import ConnectionType, Reading
+from app.models import ConnectionType, Greenhouse, IngestToken, Reading
 from app.routers.greenhouses import get_greenhouse
 from app.vpd import DEFAULT_MAX_LAG, vpd
 
 router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["ingest"])
 
 MAX_BATCH = 1000
+LIVE = (ConnectionType.API, ConnectionType.REPLAY)
+
+
+def _hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _token_row(session: Session, greenhouse_id: int) -> IngestToken | None:
+    return session.exec(select(IngestToken).where(IngestToken.greenhouse_id == greenhouse_id)).first()
+
+
+def _require_token(session: Session, greenhouse: Greenhouse, authorization: str | None) -> None:
+    row = _token_row(session, greenhouse.id)
+    scheme, _, token = (authorization or "").partition(" ")
+    if row is None or scheme.lower() != "bearer" or not hmac.compare_digest(_hash(token), row.token_hash):
+        raise HTTPException(401, "invalid or missing ingest token", headers={"WWW-Authenticate": "Bearer"})
+
+
+@router.post("/ingest-token")
+def issue_token(greenhouse_id: int, session: Session = Depends(get_session)):
+    """토큰 발급·재발급. 원문은 이 응답에서만 볼 수 있고, 재발급하면 이전 토큰은 바로 무효가 된다."""
+    greenhouse = get_greenhouse(greenhouse_id, session)
+    if greenhouse.connection_type not in LIVE:
+        raise HTTPException(409, "greenhouse is not connected via collection API or replay")
+    token = secrets.token_urlsafe(32)
+    row = _token_row(session, greenhouse_id) or IngestToken(greenhouse_id=greenhouse_id, token_hash="")
+    row.token_hash, row.created_at = _hash(token), datetime.now(timezone.utc)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return {"token": token, "created_at": row.created_at}
+
+
+@router.get("/ingest-token")
+def token_status(greenhouse_id: int, session: Session = Depends(get_session)):
+    """발급 여부만 알려준다. 토큰 값은 돌려주지 않는다."""
+    get_greenhouse(greenhouse_id, session)
+    row = _token_row(session, greenhouse_id)
+    return {"issued": row is not None, "created_at": None if row is None else row.created_at}
 
 
 class Measurement(BaseModel):
@@ -38,10 +84,16 @@ class IngestBatch(BaseModel):
 
 
 @router.post("/ingest")
-def ingest(greenhouse_id: int, batch: IngestBatch, session: Session = Depends(get_session)):
+def ingest(
+    greenhouse_id: int,
+    batch: IngestBatch,
+    authorization: str | None = Header(default=None),
+    session: Session = Depends(get_session),
+):
     greenhouse = get_greenhouse(greenhouse_id, session)
-    if greenhouse.connection_type not in (ConnectionType.API, ConnectionType.REPLAY):
+    if greenhouse.connection_type not in LIVE:
         raise HTTPException(409, "greenhouse is not connected via collection API or replay")
+    _require_token(session, greenhouse, authorization)
     if greenhouse.connection_type is ConnectionType.REPLAY and greenhouse.holdout_source is None:
         raise HTTPException(409, "replay greenhouse needs holdout_source")
 

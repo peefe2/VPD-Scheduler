@@ -2,7 +2,14 @@ import { useMutation } from '@tanstack/react-query'
 import { useRef, useState, type DragEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
-import { useBacktest, useGreenhouse, useImportCsv, useUpdateGreenhouse } from '../../api/hooks'
+import {
+  useBacktest,
+  useGreenhouse,
+  useImportCsv,
+  useIngestToken,
+  useIssueIngestToken,
+  useUpdateGreenhouse,
+} from '../../api/hooks'
 import type { ColumnMapping, CsvPreview } from '../../api/types'
 import { Icon } from '../../components/Icon'
 import { Badge, Button, ButtonLink, Card, Field, Notice, PageHeader, Stat } from '../../components/ui'
@@ -304,7 +311,58 @@ const EXAMPLE = `{
   ]
 }`
 
+// 원문 토큰은 발급 응답에만 있어 이 화면을 떠나면 다시 볼 수 없다 (서버는 해시만 저장)
+function TokenPanel({ id, issue }: { id: number; issue: ReturnType<typeof useIssueIngestToken> }) {
+  const { data: status } = useIngestToken(id)
+  const [copied, setCopied] = useState(false)
+  const token = issue.data?.token
+
+  const onIssue = () => {
+    if (status?.issued && !window.confirm('재발급하면 지금 쓰는 토큰은 바로 무효가 됩니다. 계속할까요?')) return
+    setCopied(false)
+    issue.mutate()
+  }
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(token!)
+      setCopied(true)
+    } catch {
+      /* 클립보드 권한 없음 — 직접 선택해서 복사 */
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <Button variant={status?.issued ? 'secondary' : 'primary'} disabled={issue.isPending} onClick={onIssue}>
+          {status?.issued ? '토큰 재발급' : '토큰 발급'}
+        </Button>
+        <span className={hintClass}>
+          {status?.issued
+            ? `발급됨 · ${day(status.created_at)}`
+            : '아직 발급하지 않았습니다. 토큰이 없으면 수집 요청이 401로 거부됩니다.'}
+        </span>
+      </div>
+      {token && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            <code className="mono" style={{ fontSize: 12, wordBreak: 'break-all', userSelect: 'all' }}>
+              {token}
+            </code>
+            <Button variant="ghost" onClick={copy}>
+              {copied ? '복사됨' : '복사'}
+            </Button>
+          </div>
+          <Notice tone="warn">이 토큰은 지금만 볼 수 있습니다. 잃어버리면 재발급하세요.</Notice>
+        </>
+      )}
+      {issue.isError && <Notice tone="warn">토큰을 발급하지 못했습니다: {String(issue.error.message)}</Notice>}
+    </div>
+  )
+}
+
 function IngestGuide({ id }: { id: number }) {
+  const issue = useIssueIngestToken(id)
   return (
     <Card title="수집 API" sub="게이트웨이가 측정할 때마다(또는 모아서) 아래 주소로 보내면 됩니다.">
       <ul className={s.list}>
@@ -313,6 +371,10 @@ function IngestGuide({ id }: { id: number }) {
           <span className={`${s.listVal} mono`}>
             POST {window.location.protocol}//{window.location.hostname}:8000/greenhouses/{id}/ingest
           </span>
+        </li>
+        <li>
+          <span className={s.listKey}>인증</span>
+          <span className={`${s.listVal} mono`}>Authorization: Bearer &lt;토큰&gt;</span>
         </li>
         <li>
           <span className={s.listKey}>시각</span>
@@ -332,14 +394,17 @@ function IngestGuide({ id }: { id: number }) {
       <pre className="mono" style={{ marginTop: 14, fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
         {EXAMPLE}
       </pre>
+      <TokenPanel id={id} issue={issue} />
       <p className={hintClass} style={{ marginTop: 8 }}>
-        아직 인증이 없습니다. 같은 네트워크 안에서 시연용으로만 쓰세요.
+        토큰은 센서 쪽 수집만 보호합니다. 웹 화면(토큰 발급 포함)에는 아직 로그인이 없으니 같은 네트워크 안에서
+        시연용으로만 쓰세요.
       </p>
     </Card>
   )
 }
 
 function ReplayGuide({ id, source }: { id: number; source: string | null }) {
+  const issue = useIssueIngestToken(id)
   if (!source) {
     return (
       <Notice tone="warn">
@@ -351,8 +416,9 @@ function ReplayGuide({ id, source }: { id: number; source: string | null }) {
   return (
     <Card title="재생 모드" sub="연구 데이터를 날짜만 오늘로 옮겨, 실제 시계에 맞춰 정시마다 1건씩 보냅니다.">
       <pre className="mono" style={{ fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
-        {`cd research\nuv run --project ../backend python replay_ingest.py ${id} ${source}`}
+        {`cd research\nuv run --project ../backend python replay_ingest.py ${id} ${source} --token ${issue.data?.token ?? '<토큰>'}`}
       </pre>
+      <TokenPanel id={id} issue={issue} />
       <ul className={s.list} style={{ marginTop: 14 }}>
         <li>
           <span className={s.listKey}>지난 이력</span>
