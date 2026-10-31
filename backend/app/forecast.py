@@ -23,10 +23,16 @@ _COLUMN = {"temp": "temperature", "humidity": "humidity", "co2": "co2", "VPD": "
 Predictor = Callable[[int, np.ndarray], np.ndarray]
 
 
+def _booster(path: Path) -> lgb.Booster:
+    # model_file로 경로를 넘기면 Windows에서 LightGBM(C++)이 한글 등 비ASCII 경로를 열지 못한다.
+    # 파일은 Python이 읽고 내용만 넘긴다.
+    return lgb.Booster(model_str=path.read_text(encoding="utf-8"))
+
+
 @lru_cache
 def _load(h: int) -> tuple[lgb.Booster, list[str]]:
     meta = json.loads((MODELS_DIR / f"vpd_lgbm_h{h}.json").read_text(encoding="utf-8"))
-    booster = lgb.Booster(model_file=str(MODELS_DIR / f"vpd_lgbm_h{h}.txt"))
+    booster = _booster(MODELS_DIR / f"vpd_lgbm_h{h}.txt")
     return booster, meta["features"]
 
 
@@ -50,7 +56,7 @@ def loso_sources() -> dict[str, str]:
 
 @lru_cache
 def _load_loso(h: int, key: str) -> lgb.Booster:
-    return lgb.Booster(model_file=str(MODELS_DIR / "loso" / f"h{h}_{key}.txt"))
+    return _booster(MODELS_DIR / "loso" / f"h{h}_{key}.txt")
 
 
 def predictor_for(holdout_source: str | None) -> tuple[Predictor, str]:
