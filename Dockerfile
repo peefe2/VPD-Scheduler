@@ -10,10 +10,12 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM python:3.12-slim
-# LightGBM이 쓰는 OpenMP
-RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+# LightGBM이 쓰는 OpenMP, 시간대 데이터
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 tzdata && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /usr/local/bin/uv
-ENV UV_PYTHON_DOWNLOADS=never UV_COMPILE_BYTECODE=1 PYTHONUNBUFFERED=1
+# 서버 시각 = 온실 현지 시각으로 본다(데모 온실이 "지금"까지 채운다). 배포 서버 기본은 UTC라 그대로면
+# 한국 시각보다 9시간 늦은 값이 "지금"으로 보였다 (Render 첫 배포 2026-11-01 확인)
+ENV TZ=Asia/Seoul UV_PYTHON_DOWNLOADS=never UV_COMPILE_BYTECODE=1 PYTHONUNBUFFERED=1
 
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
