@@ -3,13 +3,14 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
+from app.auth import greenhouse_access
 from app.db import get_session
 from app.models import Greenhouse, Reading
 from app.routers.backtest import evaluate_horizons, load_hourly
 from app.routers.greenhouses import get_greenhouse
 from app.today import band_status, current_run_hours, displayed_forecasts
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["today"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["today"], dependencies=[Depends(greenhouse_access)])
 
 
 def today_payload(session: Session, greenhouse: Greenhouse) -> dict:

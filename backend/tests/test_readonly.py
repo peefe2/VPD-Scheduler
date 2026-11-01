@@ -5,6 +5,7 @@ import pytest
 from app.routers import advisor as advisor_router
 from tests.test_advisor import API_GH
 from tests.test_api import GREENHOUSE, client, engine  # noqa: F401  fixture 재사용
+from tests.test_auth import make_public, new_client
 from tests.test_today import m, post
 
 
@@ -15,10 +16,13 @@ def fresh_limit():
     advisor_router.ask_limit.clear()
 
 
-def demo_greenhouse(client):  # noqa: F811
-    """읽기 전용을 켜기 전에 데모 온실을 만들어 둔다 (실제로는 VPD_DEMO가 켤 때 만든다)."""
+def demo_greenhouse(client, engine=None):  # noqa: F811
+    """읽기 전용을 켜기 전에 데모 온실을 만들어 둔다 (실제로는 VPD_DEMO가 켤 때 만든다).
+    engine을 주면 공개 온실로 — 로그인 안 한 방문자도 볼 수 있게."""
     gh = client.post("/greenhouses", json=API_GH).json()
     post(client, gh["id"], m("2026-10-01T00:00:00", t=18, rh=95, co2=450))
+    if engine is not None:
+        make_public(engine, gh["id"])
     return gh["id"], f"/greenhouses/{gh['id']}/advisor"
 
 
@@ -55,19 +59,20 @@ def test_readonly_blocks_changes_but_allows_reading(client, monkeypatch):  # noq
     assert asked.status_code == 200
 
 
-def test_readonly_keeps_each_visitor_conversation_apart(client, monkeypatch):  # noqa: F811
-    _, url = demo_greenhouse(client)
+def test_readonly_keeps_each_visitor_conversation_apart(client, engine, monkeypatch):  # noqa: F811
+    _, url = demo_greenhouse(client, engine)
     monkeypatch.setenv("VPD_READONLY", "1")
-    assert client.post(f"{url}/ask", json={"question": "누구?"}).status_code == 422  # 방문자 id 필요
+    anon = new_client()  # 로그인 안 한 방문자
+    assert anon.post(f"{url}/ask", json={"question": "누구?"}).status_code == 422  # 방문자 id 필요
 
-    client.post(f"{url}/ask", json={"question": "A의 질문", "visitor": "visitor-a"})
-    client.post(f"{url}/ask", json={"question": "B의 질문", "visitor": "visitor-b"})
-    a = client.get(f"{url}/questions", params={"visitor": "visitor-a"}).json()
+    anon.post(f"{url}/ask", json={"question": "A의 질문", "visitor": "visitor-a"})
+    anon.post(f"{url}/ask", json={"question": "B의 질문", "visitor": "visitor-b"})
+    a = anon.get(f"{url}/questions", params={"visitor": "visitor-a"}).json()
     assert [h["question"] for h in a] == ["A의 질문"]
-    assert client.get(f"{url}/questions").json() == []  # 방문자 없이는 남의 대화가 안 보인다
+    assert anon.get(f"{url}/questions").json() == []  # 방문자 없이는 남의 대화가 안 보인다
 
 
-def test_follow_up_history_is_per_visitor(client, monkeypatch):  # noqa: F811
+def test_follow_up_history_is_per_visitor(client, engine, monkeypatch):  # noqa: F811
     seen = []
     real = advisor_router.answer_question
 
@@ -76,11 +81,12 @@ def test_follow_up_history_is_per_visitor(client, monkeypatch):  # noqa: F811
         return real(question, fact, history=history)
 
     monkeypatch.setattr(advisor_router, "answer_question", spy)
-    _, url = demo_greenhouse(client)
+    _, url = demo_greenhouse(client, engine)
     monkeypatch.setenv("VPD_READONLY", "1")
-    client.post(f"{url}/ask", json={"question": "A1", "visitor": "a"})
-    client.post(f"{url}/ask", json={"question": "B1", "visitor": "b"})
-    client.post(f"{url}/ask", json={"question": "A2", "visitor": "a"})
+    anon = new_client()
+    anon.post(f"{url}/ask", json={"question": "A1", "visitor": "a"})
+    anon.post(f"{url}/ask", json={"question": "B1", "visitor": "b"})
+    anon.post(f"{url}/ask", json={"question": "A2", "visitor": "a"})
     assert seen == [[], [], ["A1"]]
 
 

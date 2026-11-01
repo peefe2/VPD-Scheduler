@@ -44,11 +44,39 @@ class GreenhouseBase(SQLModel):
         return self
 
 
+class User(SQLModel, table=True):
+    """이메일 계정. 이메일 인증은 하지 않는다(아이디로만 쓴다, 결정 2026-11-01). 비밀번호는 해시만."""
+
+    __tablename__ = "app_user"  # PostgreSQL에서 user는 예약어
+
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True, max_length=254)  # 소문자로 저장
+    password_hash: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class UserSession(SQLModel, table=True):
+    """로그인 세션. 쿠키에는 원문 토큰, DB에는 SHA-256 해시만 둔다 (수집 토큰과 같은 방식)."""
+
+    __tablename__ = "user_session"
+
+    id: int | None = Field(default=None, primary_key=True)
+    token_hash: str = Field(unique=True, index=True)
+    user_id: int = Field(foreign_key="app_user.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime
+
+
 class Greenhouse(GreenhouseBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     # CO2 열이 연결된 적 있는지. False면 영구히 "모델 사용"으로 전환하지 않는다.
     has_co2: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # 주인 계정. 보기·수정은 주인만. None은 로그인 기능 전부터 있던 온실(처음 가입한 계정이 가져감)
+    # 또는 공개 데모 온실.
+    owner_id: int | None = Field(default=None, foreign_key="app_user.id", index=True)
+    # 공개 온실(데모): 로그인 없이도 보기·질문하기는 되고, 바꾸는 건 아무도 못 한다.
+    public: bool = False
 
 
 class GreenhouseCreate(GreenhouseBase):
@@ -72,6 +100,7 @@ class GreenhouseRead(GreenhouseBase):
     id: int
     has_co2: bool
     created_at: datetime
+    public: bool
 
 
 class Reading(SQLModel, table=True):

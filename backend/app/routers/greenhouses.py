@@ -1,8 +1,10 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlmodel import Session, delete, select
 
+from app.auth import greenhouse_access, optional_user, require_user
 from app.bands import band_versions, record_band_change
 from app.db import get_session
 from app.forecast import loso_sources
@@ -17,6 +19,7 @@ from app.models import (
     GreenhouseUpdate,
     IngestToken,
     Reading,
+    User,
 )
 
 router = APIRouter(prefix="/greenhouses", tags=["greenhouses"])
@@ -41,9 +44,11 @@ def list_training_sources() -> list[str]:
 
 
 @router.post("", response_model=GreenhouseRead, status_code=201)
-def create_greenhouse(data: GreenhouseCreate, session: Session = Depends(get_session)):
+def create_greenhouse(data: GreenhouseCreate, session: Session = Depends(get_session),
+                      user: User = Depends(require_user)):
     _check_holdout(data.holdout_source)
     greenhouse = Greenhouse.model_validate(data)
+    greenhouse.owner_id = user.id
     session.add(greenhouse)
     session.commit()
     session.refresh(greenhouse)
@@ -51,16 +56,18 @@ def create_greenhouse(data: GreenhouseCreate, session: Session = Depends(get_ses
 
 
 @router.get("", response_model=list[GreenhouseRead])
-def list_greenhouses(session: Session = Depends(get_session)):
-    return session.exec(select(Greenhouse).order_by(Greenhouse.id)).all()
+def list_greenhouses(session: Session = Depends(get_session), user: User | None = Depends(optional_user)):
+    """내 온실과 공개(데모) 온실."""
+    visible = Greenhouse.public if user is None else or_(Greenhouse.public, Greenhouse.owner_id == user.id)
+    return session.exec(select(Greenhouse).where(visible).order_by(Greenhouse.id)).all()
 
 
-@router.get("/{greenhouse_id}", response_model=GreenhouseRead)
+@router.get("/{greenhouse_id}", response_model=GreenhouseRead, dependencies=[Depends(greenhouse_access)])
 def read_greenhouse(greenhouse_id: int, session: Session = Depends(get_session)):
     return get_greenhouse(greenhouse_id, session)
 
 
-@router.patch("/{greenhouse_id}", response_model=GreenhouseRead)
+@router.patch("/{greenhouse_id}", response_model=GreenhouseRead, dependencies=[Depends(greenhouse_access)])
 def update_greenhouse(
     greenhouse_id: int, data: GreenhouseUpdate, session: Session = Depends(get_session)
 ):
@@ -87,7 +94,7 @@ def update_greenhouse(
     return greenhouse
 
 
-@router.delete("/{greenhouse_id}", status_code=204)
+@router.delete("/{greenhouse_id}", status_code=204, dependencies=[Depends(greenhouse_access)])
 def delete_greenhouse(greenhouse_id: int, session: Session = Depends(get_session)):
     greenhouse = get_greenhouse(greenhouse_id, session)
     session.exec(delete(BandVersion).where(BandVersion.greenhouse_id == greenhouse_id))
@@ -101,7 +108,7 @@ def delete_greenhouse(greenhouse_id: int, session: Session = Depends(get_session
     session.commit()
 
 
-@router.get("/{greenhouse_id}/bands")
+@router.get("/{greenhouse_id}/bands", dependencies=[Depends(greenhouse_access)])
 def list_bands(greenhouse_id: int, session: Session = Depends(get_session)):
     """대역 변경 이력. effective_from이 null이면 "처음부터"."""
     gh = get_greenhouse(greenhouse_id, session)

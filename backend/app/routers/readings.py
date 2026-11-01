@@ -3,11 +3,12 @@ from datetime import date, datetime, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
+from app.auth import greenhouse_access
 from app.db import get_session
 from app.models import Reading
 from app.routers.greenhouses import get_greenhouse
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["readings"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["readings"], dependencies=[Depends(greenhouse_access)])
 
 MAX_DAYS = 31
 

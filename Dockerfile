@@ -1,6 +1,7 @@
-# 공개 시연용 한 서버 이미지: 프론트를 빌드하고, 백엔드(app.serve)가 화면(/)과 API(/api)를 함께 준다.
-# 기본값은 읽기 전용 데모 — 켤 때 데모 온실을 만들고, 질문하기만 열어 둔다 (README "공개 시연 배포").
-# GEMINI_API_KEY는 이미지에 넣지 않고 배포 서비스의 비밀 환경변수로 준다.
+# 배포용 한 서버 이미지: 프론트를 빌드하고, 백엔드(app.serve)가 화면(/)과 API(/api)를 함께 준다.
+# 켤 때 공개 데모 온실을 만든다. 이메일 가입·로그인한 사람만 자기 온실을 만들고, 로그인 안 한 방문자는
+# 데모 온실 보기·질문만 (README "공개 배포").
+# GEMINI_API_KEY·VPD_DATABASE_URL은 이미지에 넣지 않고 배포 서비스의 비밀 환경변수로 준다.
 
 FROM node:22-slim AS web
 WORKDIR /web
@@ -25,6 +26,7 @@ COPY backend/ ./
 COPY research/data/combined_hourly_pointsample.csv /app/research/data/
 COPY --from=web /web/dist /app/frontend/dist
 
-ENV VPD_DEMO=1 VPD_READONLY=1 VPD_ASK_PER_MINUTE=10
+# HTTPS로만 쓰므로 세션 쿠키에 Secure를 붙인다
+ENV VPD_DEMO=1 VPD_READONLY=0 VPD_ASK_PER_MINUTE=10 VPD_COOKIE_SECURE=1
 EXPOSE 8000
 CMD ["sh", "-c", "uv run --frozen --no-dev uvicorn app.serve:app --host 0.0.0.0 --port ${PORT:-8000}"]

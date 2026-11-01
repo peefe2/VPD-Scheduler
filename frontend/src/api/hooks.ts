@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './client'
+import { ApiError, api } from './client'
 import type { AdviceDecision, AdviceQuestion, ColumnMapping, GreenhouseInput } from './types'
 
 export const keys = {
@@ -50,6 +50,25 @@ export function useDecide(id: number) {
     },
   })
 }
+
+// 로그인 안 했으면 null (401은 오류가 아니라 "로그인 전")
+export const useMe = () =>
+  useQuery({
+    queryKey: ['me'],
+    queryFn: () => api.me().catch((e) => (e instanceof ApiError && e.status === 401 ? null : Promise.reject(e))),
+    staleTime: Infinity,
+  })
+
+// 계정이 바뀌면 보이는 온실·대화가 달라지므로 캐시를 모두 비우고 다시 읽는다
+function useAuthMutation<A>(fn: (a: A) => Promise<unknown>) {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.resetQueries() })
+}
+
+export const useLogin = () => useAuthMutation((a: { email: string; password: string }) => api.login(a.email, a.password))
+export const useSignup = () =>
+  useAuthMutation((a: { email: string; password: string }) => api.signup(a.email, a.password))
+export const useLogout = () => useAuthMutation(() => api.logout())
 
 export const useConfig = () => useQuery({ queryKey: ['config'], queryFn: api.config, staleTime: Infinity })
 

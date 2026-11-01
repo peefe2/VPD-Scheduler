@@ -5,13 +5,14 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
+from app.auth import greenhouse_access
 from app.bands import band_series, band_versions
 from app.calendar import DAYTIME_HOURS, MIN_DAY_HOURS, MIN_NIGHT_HOURS, daily_summary
 from app.db import get_session
 from app.models import Reading
 from app.routers.greenhouses import get_greenhouse
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["calendar"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["calendar"], dependencies=[Depends(greenhouse_access)])
 
 
 def _num(v):

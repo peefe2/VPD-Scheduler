@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from app.db import init_db
-from app.routers import advisor, backtest, calendar, csv_import, greenhouses, ingest, readings, today
+from app.routers import advisor, auth, backtest, calendar, csv_import, greenhouses, ingest, readings, today
 
 
 def seed_demo() -> None:
@@ -38,6 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth.router)
 app.include_router(greenhouses.router)
 app.include_router(csv_import.router)
 app.include_router(backtest.router)

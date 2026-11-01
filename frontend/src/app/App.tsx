@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
-import { useGreenhouse, useGreenhouses } from '../api/hooks'
+import { useGreenhouse, useGreenhouses, useMe } from '../api/hooks'
 import { ErrorState, Loading } from '../components/ui'
+import { AuthPage } from '../features/auth/AuthPage'
 import { CalendarPage } from '../features/calendar/CalendarPage'
 import { DataStep } from '../features/onboarding/DataStep'
 import { GreenhouseStep } from '../features/onboarding/GreenhouseStep'
@@ -11,11 +12,22 @@ import { AdvisorPage } from '../features/advisor/AdvisorPage'
 import { TrustPage } from '../features/trust/TrustPage'
 import { Layout } from './Layout'
 
+// 내 온실이 있으면 그 첫 온실, 없으면 공개(데모) 온실, 그것도 없으면 온실 등록(로그인 전이면 로그인)
 function RootRedirect() {
   const { data, isLoading, error } = useGreenhouses()
-  if (isLoading) return <Loading />
+  const me = useMe()
+  if (isLoading || me.isLoading) return <Loading />
   if (error) return <ErrorState error={error} />
-  return <Navigate to={data && data.length > 0 ? `/g/${data[0].id}/calendar` : '/onboarding'} replace />
+  const first = data?.find((g) => !g.public) ?? data?.[0]
+  if (first) return <Navigate to={`/g/${first.id}/calendar`} replace />
+  return <Navigate to={me.data ? '/onboarding' : '/login'} replace />
+}
+
+// 온실 등록은 로그인해야 한다
+function RequireLogin({ children }: { children: React.ReactNode }) {
+  const { data: me, isLoading } = useMe()
+  if (isLoading) return <Loading />
+  return me ? <>{children}</> : <Navigate to="/login" replace />
 }
 
 // :ghId 아래 화면은 온실을 불러온 뒤에 그린다
@@ -32,7 +44,16 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<RootRedirect />} />
-        <Route path="onboarding" element={<GreenhouseStep />} />
+        <Route path="login" element={<AuthPage mode="login" />} />
+        <Route path="signup" element={<AuthPage mode="signup" />} />
+        <Route
+          path="onboarding"
+          element={
+            <RequireLogin>
+              <GreenhouseStep />
+            </RequireLogin>
+          }
+        />
         <Route path="g/:ghId">
           <Route index element={<Navigate to="calendar" replace />} />
           <Route path="setup/data" element={<WithGreenhouse render={(id) => <DataStep id={id} />} />} />

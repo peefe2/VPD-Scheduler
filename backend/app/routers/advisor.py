@@ -9,13 +9,14 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, delete, select
 
 from app.advisor import answer_question, build_fact_sheet, make_advice, situation
+from app.auth import greenhouse_access, optional_user
 from app.db import get_session
-from app.models import AdviceDecision, AdviceQuestion, AdviceRecord, ConnectionType, Greenhouse, Reading
+from app.models import AdviceDecision, AdviceQuestion, AdviceRecord, ConnectionType, Greenhouse, Reading, User
 from app.routers.greenhouses import get_greenhouse
 from app.routers.today import today_payload
 from app.today import band_status
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}/advisor", tags=["advisor"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}/advisor", tags=["advisor"], dependencies=[Depends(greenhouse_access)])
 
 LIVE = {ConnectionType.API, ConnectionType.REPLAY}
 HISTORY_TURNS = 3  # 후속 질문에 같이 보내는 앞 대화 수
@@ -157,13 +158,23 @@ def _check_ask_limit() -> None:
     ask_limit.append(now)
 
 
+def _chat_key(gh: Greenhouse, user: User | None, visitor: str | None) -> str | None:
+    """대화를 나누는 열쇠. 내 온실이면 None(주인 대화), 남의 공개(데모) 온실이면 계정별, 로그인
+    안 했으면 브라우저 방문자 id — 공개 온실에서 남의 대화가 보이지 않게."""
+    if user is not None:
+        return None if gh.owner_id == user.id else f"user:{user.id}"
+    return visitor
+
+
 @router.post("/ask")
-def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_session)):
+def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_session),
+        user: User | None = Depends(optional_user)):
     """자유 질문. 조치 후보와 같은 가드레일을 거친다 (LLM 미연결이면 규칙 안내).
-    질문과 답은 대화 내역으로 저장한다. 읽기 전용이면 방문자 id가 있어야 한다."""
-    if os.environ.get("VPD_READONLY") == "1" and body.visitor is None:
-        raise HTTPException(422, "visitor is required in read-only demo")
+    질문과 답은 대화 내역으로 저장한다. 로그인 안 했으면 방문자 id가 있어야 한다."""
+    if user is None and body.visitor is None:
+        raise HTTPException(422, "visitor is required when not logged in")
     gh = get_greenhouse(greenhouse_id, session)
+    key = _chat_key(gh, user, body.visitor)
     fact, reason = _fact_or_reason(session, gh)
     if fact is None:
         raise HTTPException(409, reason)
@@ -173,7 +184,7 @@ def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_ses
     # 숫자는 지금 사실 시트에 없어서, LLM이 따라 쓰면 가드레일에 막힌다.
     recent = session.exec(
         select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == gh.id, AdviceQuestion.observed_at == hour,
-                                     AdviceQuestion.visitor == body.visitor)
+                                     AdviceQuestion.visitor == key)
         .order_by(AdviceQuestion.id.desc()).limit(HISTORY_TURNS)
     ).all()
     history = [{"question": r.question, "answer": r.answer} for r in reversed(recent)]
@@ -182,7 +193,7 @@ def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_ses
         greenhouse_id=gh.id, observed_at=hour,
         vpd=fact["current"]["vpd"], question=body.question, answer=result["answer"],
         source=result["source"], note=result.get("note", ""), violations=result["violations"],
-        visitor=body.visitor,
+        visitor=key,
     )
     session.add(row)
     session.commit()
@@ -192,13 +203,14 @@ def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_ses
 
 @router.get("/questions")
 def questions(greenhouse_id: int, limit: int = 50, visitor: str | None = None,
-              session: Session = Depends(get_session)):
-    """대화 내역. 최근 limit개를 오래된 것부터 (채팅 화면 순서). visitor를 주면 그 방문자 것만,
-    안 주면 방문자 없는(온실 주인) 대화만 — 공개 데모에서 남의 대화가 보이지 않게."""
-    get_greenhouse(greenhouse_id, session)
+              session: Session = Depends(get_session), user: User | None = Depends(optional_user)):
+    """대화 내역. 최근 limit개를 오래된 것부터 (채팅 화면 순서). 내 대화만 (_chat_key)."""
+    gh = get_greenhouse(greenhouse_id, session)
+    if user is None and visitor is None:
+        return []
     rows = session.exec(
         select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == greenhouse_id,
-                                     AdviceQuestion.visitor == visitor)
+                                     AdviceQuestion.visitor == _chat_key(gh, user, visitor))
         .order_by(AdviceQuestion.id.desc()).limit(min(max(limit, 1), 200))
     ).all()
     return list(reversed(rows))

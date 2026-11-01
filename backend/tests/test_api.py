@@ -28,7 +28,10 @@ def client(engine):
             yield session
 
     app.dependency_overrides[get_session] = override
-    yield TestClient(app)
+    c = TestClient(app)
+    # 온실은 가입한 계정의 것이다. 기존 테스트는 모두 그 주인으로 로그인한 상태에서 돈다.
+    assert c.post("/auth/signup", json={"email": "owner@example.com", "password": "password123"}).status_code == 201
+    yield c
     app.dependency_overrides.clear()
 
 

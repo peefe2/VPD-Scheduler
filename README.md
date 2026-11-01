@@ -101,12 +101,23 @@ npm run dev
 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/)에서 각자 받는 무료 키. **남에게 공유하거나 git에 넣지 않습니다** |
 | `VPD_ADVISOR_LLM=1` | AI 어드바이저가 Gemini를 씀 (없으면 규칙 기반 안내만) |
 | `VPD_DEMO=1` | 켤 때 데모 온실을 만들고 지금 시각까지 이력을 채움 |
-| `VPD_READONLY=1` | 읽기 전용 공개 데모 — 온실 추가·수정·기록을 막고 질문하기만 열어 둠 |
+| `VPD_READONLY=1` | 완전 읽기 전용 — 가입·로그인 포함 모든 쓰기를 막고 질문하기만 열어 둠 |
+| `VPD_DATABASE_URL` | DB 주소. 비우면 `backend/vpd.db`(SQLite), 배포는 PostgreSQL(`postgresql://...`) |
 | `VPD_ASK_PER_MINUTE` | 1분에 받는 질문 수 상한 (공개 데모에서 무료 키 한도 보호) |
 
 모델은 `VPD_ADVISOR_MODEL`로 바꿀 수 있습니다(기본 `gemini-3.5-flash-lite`, 응답 약 4초).
 LLM 답변은 "모델 사용" 상태 지평이 있을 때만 쓰이고, 가드레일을 통과하지 못하거나 호출이 실패하면
 규칙 기반 안내로 대체됩니다. 무료 등급은 보낸 내용이 Google 제품 개선에 쓰일 수 있습니다(온실 측정값만 보냅니다).
+
+## 계정 (이메일 가입·로그인)
+
+화면 왼쪽 아래 **회원가입**에서 이메일과 비밀번호(8자 이상)로 가입합니다. 이메일 확인 메일은 보내지
+않고, 비밀번호 찾기는 아직 없습니다.
+
+- 온실은 만든 계정만 보고 바꿀 수 있습니다. 로그인하지 않으면 **공개 데모 온실**만 보이고(보기·AI
+  질문하기), 데모 온실은 아무도 바꿀 수 없습니다.
+- 로그인 기능 전부터 있던 온실은 **처음 가입한 계정**의 것이 됩니다(데모 온실 제외).
+- 센서 수집 API는 로그인 대신 온실별 토큰으로 인증합니다(그대로).
 
 ## 데모 온실 (자동)
 
@@ -133,19 +144,22 @@ LLM 답변은 "모델 사용" 상태 지평이 있을 때만 쓰이고, 가드�
 
 재생 온실은 모든 화면에 "재생 데이터, 이 온실의 실측이 아님" 안내가 뜹니다.
 
-## 공개 시연 배포 (Render, 무료)
+## 공개 배포 (Render + Neon, 무료)
 
-웹 화면에 로그인이 없어서, 인터넷에 올릴 때는 **읽기 전용 데모**로만 올립니다. `Dockerfile`이 프론트를
-빌드해 백엔드 한 서버로 묶고, 기본값으로 `VPD_DEMO=1`, `VPD_READONLY=1`, `VPD_ASK_PER_MINUTE=10`을 켭니다.
+`Dockerfile`이 프론트를 빌드해 백엔드 한 서버로 묶고, 기본값으로 데모 온실(`VPD_DEMO=1`), 질문 수 상한
+(`VPD_ASK_PER_MINUTE=10`), HTTPS 전용 세션 쿠키(`VPD_COOKIE_SECURE=1`)를 켭니다. Render 무료 플랜은
+디스크가 유지되지 않으므로 **계정·온실은 Neon(무료 PostgreSQL)에 둡니다.**
 
-1. [Render](https://render.com)에 GitHub 계정으로 가입
-2. 대시보드에서 **New → Blueprint** → 이 저장소 선택 (`render.yaml`대로 만든다)
-3. `GEMINI_API_KEY` 값을 묻는 칸에 키를 넣고 만들기 — 빌드에 몇 분 걸립니다
+1. [Neon](https://neon.tech)에 가입 → 프로젝트 만들기(지역은 가까운 곳, 예: Singapore) →
+   **Connection string**(`postgresql://...?sslmode=require`)을 복사
+2. [Render](https://render.com)에 GitHub 계정으로 가입 → **New → Blueprint** → 이 저장소 선택
+3. `GEMINI_API_KEY`에 Gemini 키, `VPD_DATABASE_URL`에 Neon 연결 주소를 넣고 만들기 — 빌드에 몇 분
+   (이미 만든 서비스면 서비스 **Environment**에서 `VPD_DATABASE_URL`을 추가하고 저장 → 다시 배포)
 4. 생긴 주소(`https://vpd-scheduler-demo.onrender.com` 같은)를 공유
 
-무료 플랜은 15분 동안 접속이 없으면 잠들어서, 다음 접속 때 깨어나는 데 1분쯤 걸립니다. 저장 공간이
-유지되지 않아 깨어날 때마다 DB가 새로 생기고 데모 온실도 그 시각까지 다시 만들어집니다(방문자 대화도
-이때 지워집니다). 방문자 모두가 키 하나를 같이 쓰므로, 질문이 몰리면 "1분 뒤 다시"가 뜰 수 있습니다.
+무료 플랜은 15분 동안 접속이 없으면 잠들어서, 다음 접속 때 깨어나는 데 1분쯤 걸립니다. 방문자 모두가
+Gemini 키 하나를 같이 쓰므로, 질문이 몰리면 "1분 뒤 다시"가 뜰 수 있습니다. `VPD_DATABASE_URL`을 비워
+두면 서버 안 SQLite를 써서 잠들 때마다 계정·온실이 지워집니다.
 
 ## 테스트
 

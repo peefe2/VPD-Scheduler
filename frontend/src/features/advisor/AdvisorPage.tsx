@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
-import { useAdvice, useAdviceLogs, useAsk, useConfig, useDecide, useGreenhouse, useQuestions } from '../../api/hooks'
+import { useAdvice, useAdviceLogs, useAsk, useConfig, useDecide, useGreenhouse, useMe, useQuestions } from '../../api/hooks'
 import type { AdviceCandidate, AdviceDecision, FactSheet } from '../../api/types'
 import { hintClass, inputClass, tableClass, tableWrapClass } from '../../components/classes'
 import { ReplayNotice } from '../../components/ReplayNotice'
@@ -117,9 +117,9 @@ const stamp = (iso: string) => `${iso.slice(5, 10)} ${hhmm(iso)}`
 
 function AskCard({ id }: { id: number }) {
   const [q, setQ] = useState('')
-  const { data: config } = useConfig()
-  // 읽기 전용 공개 데모에서는 브라우저마다 대화를 나눈다 (모드를 알기 전에는 묻지 않는다)
-  const visitor = config?.readonly ? visitorId() : undefined
+  const { data: me, isLoading: meLoading } = useMe()
+  // 로그인 안 했으면(공개 데모 온실) 브라우저마다 대화를 나눈다. 로그인했으면 서버가 계정으로 나눈다.
+  const visitor = me === null ? visitorId() : undefined
   const { data: history, isLoading } = useQuestions(id, visitor)
   const ask = useAsk(id, visitor)
   const listRef = useRef<HTMLOListElement>(null)
@@ -134,7 +134,7 @@ function AskCard({ id }: { id: number }) {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const text = q.trim()
-    if (!text || ask.isPending || !config) return
+    if (!text || ask.isPending || meLoading) return
     ask.mutate(text)
     setQ('')
   }
@@ -250,6 +250,7 @@ export function AdvisorPage({ id }: { id: number }) {
   const { data: advice, isLoading, error } = useAdvice(id, live)
   const decide = useDecide(id)
   const readonly = useConfig().data?.readonly ?? false
+  const locked = readonly || (gh?.public ?? false) // 공개 데모 온실은 아무도 기록하지 못한다
 
   if (gh && !live) return <RequiresApi title="AI 어드바이저" />
   if (error) return <ErrorState error={error} />
@@ -294,12 +295,12 @@ export function AdvisorPage({ id }: { id: number }) {
                 <CandidateItem
                   key={c.index}
                   c={c}
-                  pending={decide.isPending || readonly}
+                  pending={decide.isPending || locked}
                   onDecide={(d) => decide.mutate({ adviceId: advice.advice_id, index: c.index, decision: d })}
                 />
               ))}
             </ol>
-            {readonly && <p className={hintClass}>읽기 전용 데모라 실행 기록 버튼은 꺼져 있습니다.</p>}
+            {locked && <p className={hintClass}>공개 데모 온실이라 실행 기록 버튼은 꺼져 있습니다.</p>}
             {decide.error && (
               <div style={{ marginTop: 12 }}>
                 <ErrorState error={decide.error} />

@@ -23,12 +23,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, NaiveDatetime
 from sqlmodel import Session, select
 
+from app.auth import greenhouse_access
 from app.db import get_session
 from app.models import ConnectionType, Greenhouse, IngestToken, Reading
 from app.routers.greenhouses import get_greenhouse
 from app.vpd import DEFAULT_MAX_LAG, vpd
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["ingest"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["ingest"], dependencies=[Depends(greenhouse_access)])
 
 MAX_BATCH = 1000
 LIVE = (ConnectionType.API, ConnectionType.REPLAY)

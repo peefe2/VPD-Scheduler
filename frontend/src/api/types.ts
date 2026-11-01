@@ -33,6 +33,14 @@ export interface Greenhouse extends GreenhouseInput {
   has_co2: boolean
   created_at: string
   holdout_source: string | null
+  /** 공개(데모) 온실: 누구나 보기·질문만, 아무도 바꾸지 못함 */
+  public: boolean
+}
+
+/** 로그인한 계정 */
+export interface Me {
+  id: number
+  email: string
 }
 
 export interface ColumnMapping {

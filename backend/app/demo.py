@@ -37,10 +37,14 @@ def ensure_demo(session: Session, now: datetime | None = None, data_path: Path =
     gh = session.exec(select(Greenhouse).where(Greenhouse.name == DEMO_NAME)).first()
     if gh is None:
         gh = Greenhouse(name=DEMO_NAME, crop="미상(연구 데이터)", connection_type=ConnectionType.REPLAY,
-                        holdout_source=DEMO_SOURCE, equipment=list(Equipment))
+                        holdout_source=DEMO_SOURCE, equipment=list(Equipment), public=True)
         session.add(gh)
         session.commit()
         session.refresh(gh)
+    elif not gh.public:  # 로그인 기능 전에 만든 데모 온실 — 누구나 보게 공개로
+        gh.public = True
+        session.add(gh)
+        session.commit()
 
     first = session.exec(select(Reading).where(Reading.greenhouse_id == gh.id).order_by(Reading.hour)).first()
     if first is None:  # 처음: 원본 (앞 이력 다음날)이 오늘이 되게

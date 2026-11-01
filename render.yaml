@@ -1,6 +1,7 @@
 # Render 배포 설정 (Blueprint). Render 대시보드에서 New → Blueprint → 이 저장소를 고르면 이 파일대로 만든다.
 # 무료 플랜: 15분 동안 접속이 없으면 잠들고, 다음 접속 때 깨어나는 데 1분쯤 걸린다.
-# 디스크가 유지되지 않아 깨어날 때마다 DB가 새로 생긴다 — 데모 온실은 그때 다시 만들어진다(지금 시각까지).
+# 무료 플랜은 디스크가 유지되지 않으므로 계정·온실은 바깥 PostgreSQL(Neon 무료 등)에 둔다 — VPD_DATABASE_URL.
+# 비워 두면 서버 안 SQLite를 써서 잠들 때마다 계정·온실이 지워진다(데모 온실만 다시 만들어진다).
 services:
   - type: web
     name: vpd-scheduler-demo
@@ -12,3 +13,5 @@ services:
         sync: false # 만들 때 대시보드에서 직접 입력 (저장소에 넣지 않는다)
       - key: VPD_ADVISOR_LLM
         value: "1"
+      - key: VPD_DATABASE_URL
+        sync: false # Neon 연결 주소(postgresql://...) — 대시보드에서 직접 입력

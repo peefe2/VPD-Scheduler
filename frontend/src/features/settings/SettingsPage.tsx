@@ -1,5 +1,5 @@
 import { useBands, useGreenhouse, useUpdateGreenhouse } from '../../api/hooks'
-import { Badge, Button, ButtonLink, Card, PageHeader } from '../../components/ui'
+import { Badge, Button, ButtonLink, Card, Notice, PageHeader } from '../../components/ui'
 import { GreenhouseForm } from '../onboarding/GreenhouseForm'
 import s from '../onboarding/onboarding.module.css'
 
@@ -8,6 +8,14 @@ export function SettingsPage({ id }: { id: number }) {
   const update = useUpdateGreenhouse(id)
   const { data: bands } = useBands(id)
   if (!gh) return null
+  if (gh.public) {
+    return (
+      <>
+        <PageHeader title="온실 설정" sub={gh.name} />
+        <Notice tone="info">공개 데모 온실은 누구나 볼 수 있지만 설정은 바꿀 수 없습니다. 로그인해서 내 온실을 만들어 보세요.</Notice>
+      </>
+    )
+  }
 
   return (
     <>

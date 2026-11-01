@@ -4,13 +4,14 @@ import pandas as pd
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
+from app.auth import greenhouse_access
 from app.db import get_session
 from app.forecast import HORIZONS, backtest_samples, predictor_for
 from app.models import Greenhouse, Reading
 from app.routers.greenhouses import get_greenhouse
 from app.switching import evaluate_horizon
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["backtest"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}", tags=["backtest"], dependencies=[Depends(greenhouse_access)])
 
 
 def load_hourly(session: Session, greenhouse_id: int) -> pd.DataFrame:

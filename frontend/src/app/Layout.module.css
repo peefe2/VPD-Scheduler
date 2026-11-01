@@ -127,6 +127,36 @@
   padding: 4px 0;
 }
 
+/* 사이드바 맨 아래: 로그인한 이메일 + 로그아웃, 또는 로그인·회원가입 */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.accountEmail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.accountAction {
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--side-dot);
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .main {
   min-width: 0;
   padding: 32px 40px 56px;

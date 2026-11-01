@@ -13,12 +13,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, delete
 
+from app.auth import greenhouse_access
 from app.db import get_session
 from app.models import Reading
 from app.routers.greenhouses import get_greenhouse
 from app.vpd import hourly_first, vpd
 
-router = APIRouter(prefix="/greenhouses/{greenhouse_id}/csv", tags=["csv"])
+router = APIRouter(prefix="/greenhouses/{greenhouse_id}/csv", tags=["csv"], dependencies=[Depends(greenhouse_access)])
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 PREVIEW_ROWS = 5

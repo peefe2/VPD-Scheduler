@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { useConfig, useGreenhouses } from '../api/hooks'
+import { useConfig, useGreenhouses, useLogout, useMe } from '../api/hooks'
 import { Icon, type IconName } from '../components/Icon'
 import { Notice } from '../components/ui'
 import { connectionLabel } from '../lib/labels'
@@ -17,6 +17,8 @@ export function Layout() {
   const { ghId } = useParams()
   const { data: greenhouses } = useGreenhouses()
   const readonly = useConfig().data?.readonly ?? false
+  const { data: me, isLoading: meLoading } = useMe()
+  const logout = useLogout()
   const navigate = useNavigate()
   const location = useLocation()
   const current = greenhouses?.find((g) => g.id === Number(ghId))
@@ -67,7 +69,7 @@ export function Layout() {
               {!current && <option value="">선택</option>}
               {greenhouses.map((g) => (
                 <option key={g.id} value={g.id}>
-                  {g.name}
+                  {g.public ? `${g.name} · 공개 데모` : g.name}
                 </option>
               ))}
             </select>
@@ -79,12 +81,41 @@ export function Layout() {
               {current.crop} · {connectionLabel(current.connection_type)}
             </span>
           )}
-          {!readonly && (
+          {!readonly && me && (
             <Link to="/onboarding" className={s.newGh}>
               <Icon name="plus" size={15} />새 온실 등록
             </Link>
           )}
         </div>
+
+        {!meLoading && (
+          <div className={s.account}>
+            {me ? (
+              <>
+                <span className={s.accountEmail} title={me.email}>
+                  {me.email}
+                </span>
+                <button
+                  type="button"
+                  className={s.accountAction}
+                  disabled={logout.isPending}
+                  onClick={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className={s.accountAction}>
+                  로그인
+                </Link>
+                <Link to="/signup" className={s.accountAction}>
+                  회원가입
+                </Link>
+              </>
+            )}
+          </div>
+        )}
       </aside>
 
       <main className={s.main}>
@@ -94,6 +125,14 @@ export function Layout() {
               <Notice tone="info">
                 읽기 전용 데모입니다. 둘러보기와 AI 어드바이저 질문하기만 할 수 있고, 온실 추가·수정과 기록은
                 막혀 있습니다. 질문한 대화는 이 브라우저에서만 보입니다.
+              </Notice>
+            </div>
+          )}
+          {!readonly && !meLoading && !me && !['/login', '/signup'].includes(location.pathname) && (
+            <div style={{ marginBottom: 16 }}>
+              <Notice tone="info">
+                로그인하지 않으면 공개 데모 온실만 볼 수 있습니다(보기·AI 질문하기). <Link to="/login">로그인</Link>하거나{' '}
+                <Link to="/signup">회원가입</Link>하면 내 온실을 만들 수 있습니다.
               </Notice>
             </div>
           )}

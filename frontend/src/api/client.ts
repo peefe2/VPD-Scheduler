@@ -5,6 +5,7 @@ import type {
   AdviceResponse,
   AdviceQuestion,
   AppConfig,
+  Me,
   Backtest,
   CalendarResponse,
   ColumnMapping,
@@ -91,6 +92,10 @@ export const api = {
       `/greenhouses/${id}/advisor/questions` + (visitor ? `?visitor=${encodeURIComponent(visitor)}` : ''),
     ),
   config: () => request<AppConfig>('/config'),
+  me: () => request<Me>('/auth/me'),
+  signup: (email: string, password: string) => request<Me>('/auth/signup', json('POST', { email, password })),
+  login: (email: string, password: string) => request<Me>('/auth/login', json('POST', { email, password })),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
   calendar: (id: number, start?: string, end?: string) => {
     const q = new URLSearchParams()
     if (start) q.set('start', start)

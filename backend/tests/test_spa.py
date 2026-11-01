@@ -25,6 +25,8 @@ def test_api_under_prefix_and_startup_runs(tmp_path, client):  # noqa: F811
     tc, started = served(tmp_path, client)
     with tc:
         assert tc.get("/api/health").json() == {"status": "ok"}
+        signup = tc.post("/api/auth/signup", json={"email": "spa@example.com", "password": "password123"})
+        assert signup.status_code == 201  # 쿠키가 /api 아래에서도 붙는다
         assert tc.post("/api/greenhouses", json=GREENHOUSE).status_code == 201
         assert len(tc.get("/api/greenhouses").json()) == 1
     assert started == [True]
