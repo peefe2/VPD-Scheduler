@@ -5,7 +5,7 @@
                      가능한 최소 이력, CLAUDE.md). 원본 D일째가 오늘 날짜가 된다.
   --speed X          그 뒤 정시를 보내는 속도. 1(기본)이면 실제 시계에 맞춰 매 정시에 1건.
                      X>1이면 3600/X초마다 1건 — 표시 시각이 실제 시계보다 앞서 나간다.
-  --base-url URL     백엔드 주소 (기본 http://localhost:8000)
+  --base-url URL     백엔드 API 주소 (기본 http://localhost:8000/api — app.serve는 API를 /api 아래에 둔다)
   --token TOKEN      수집 API 토큰 (없으면 환경변수 VPD_INGEST_TOKEN). 온보딩 데이터 연결 화면에서 발급
 
 - 시각은 **날짜만** 통째로 옮긴다(일 단위). 시 단위로 옮기면 낮(09~17시)·밤 주기가
@@ -49,7 +49,7 @@ def main() -> None:
     p.add_argument("source")
     p.add_argument("--backfill-days", type=int, default=35)
     p.add_argument("--speed", type=float, default=1.0)
-    p.add_argument("--base-url", default="http://localhost:8000")
+    p.add_argument("--base-url", default="http://localhost:8000/api")
     p.add_argument("--token", default=os.environ.get("VPD_INGEST_TOKEN"))
     args = p.parse_args()
     sys.stdout.reconfigure(line_buffering=True)  # 오래 도는 스크립트라 로그를 바로 보이게

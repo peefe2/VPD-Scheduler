@@ -361,6 +361,12 @@ function TokenPanel({ id, issue }: { id: number; issue: ReturnType<typeof useIss
   )
 }
 
+// 센서가 보낼 백엔드 주소. 개발 중엔 화면(5173)과 백엔드(8000)가 따로 뜨고, 배포 때는 같은 서버다.
+const apiOrigin = () =>
+  import.meta.env.DEV
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : window.location.origin
+
 function IngestGuide({ id }: { id: number }) {
   const issue = useIssueIngestToken(id)
   return (
@@ -369,7 +375,7 @@ function IngestGuide({ id }: { id: number }) {
         <li>
           <span className={s.listKey}>주소</span>
           <span className={`${s.listVal} mono`}>
-            POST {window.location.protocol}//{window.location.hostname}:8000/greenhouses/{id}/ingest
+            POST {apiOrigin()}/api/greenhouses/{id}/ingest
           </span>
         </li>
         <li>

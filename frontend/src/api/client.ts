@@ -4,6 +4,7 @@ import type {
   AdviceLog,
   AdviceResponse,
   AdviceQuestion,
+  AppConfig,
   Backtest,
   CalendarResponse,
   ColumnMapping,
@@ -82,9 +83,14 @@ export const api = {
       json('POST', { candidate_index: candidateIndex, decision }),
     ),
   adviceLogs: (id: number) => request<AdviceLog[]>(`/greenhouses/${id}/advisor/logs`),
-  ask: (id: number, question: string) =>
-    request<AdviceQuestion>(`/greenhouses/${id}/advisor/ask`, json('POST', { question })),
-  questions: (id: number) => request<AdviceQuestion[]>(`/greenhouses/${id}/advisor/questions`),
+  // visitor: 읽기 전용 공개 데모에서만 보내는 브라우저별 id (대화를 방문자마다 나눈다)
+  ask: (id: number, question: string, visitor?: string) =>
+    request<AdviceQuestion>(`/greenhouses/${id}/advisor/ask`, json('POST', { question, visitor })),
+  questions: (id: number, visitor?: string) =>
+    request<AdviceQuestion[]>(
+      `/greenhouses/${id}/advisor/questions` + (visitor ? `?visitor=${encodeURIComponent(visitor)}` : ''),
+    ),
+  config: () => request<AppConfig>('/config'),
   calendar: (id: number, start?: string, end?: string) => {
     const q = new URLSearchParams()
     if (start) q.set('start', start)

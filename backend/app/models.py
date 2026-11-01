@@ -126,6 +126,8 @@ class AdviceQuestion(SQLModel, table=True):
     source: str  # "rule" | "llm"
     note: str = ""  # 규칙 안내로 대체된 이유
     violations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    # 읽기 전용 공개 데모에서 방문자(브라우저)별로 대화를 나눈다. 평소에는 None (온실 주인 한 명)
+    visitor: str | None = Field(default=None, index=True, max_length=64)
 
 
 class AdviceDecision(SQLModel, table=True):

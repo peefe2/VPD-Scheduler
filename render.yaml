@@ -1,0 +1,14 @@
+# Render 배포 설정 (Blueprint). Render 대시보드에서 New → Blueprint → 이 저장소를 고르면 이 파일대로 만든다.
+# 무료 플랜: 15분 동안 접속이 없으면 잠들고, 다음 접속 때 깨어나는 데 1분쯤 걸린다.
+# 디스크가 유지되지 않아 깨어날 때마다 DB가 새로 생긴다 — 데모 온실은 그때 다시 만들어진다(지금 시각까지).
+services:
+  - type: web
+    name: vpd-scheduler-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false # 만들 때 대시보드에서 직접 입력 (저장소에 넣지 않는다)
+      - key: VPD_ADVISOR_LLM
+        value: "1"

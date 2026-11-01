@@ -1,3 +1,6 @@
+import os
+import time
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -133,21 +136,44 @@ def logs(greenhouse_id: int, limit: int = 50, session: Session = Depends(get_ses
 
 class QuestionIn(BaseModel):
     question: str = Field(min_length=1, max_length=500)
+    # 읽기 전용 공개 데모에서 브라우저마다 만드는 방문자 id. 평소(온실 주인)에는 비운다.
+    visitor: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+# 최근 1분 안의 질문 시각 (프로세스 하나 기준). VPD_ASK_PER_MINUTE가 있으면 넘는 질문은 429 —
+# 공개 데모에서 무료 Gemini 키 한도를 여러 방문자가 함께 쓰기 때문
+ask_limit: deque[float] = deque()
+
+
+def _check_ask_limit() -> None:
+    per_minute = os.environ.get("VPD_ASK_PER_MINUTE")
+    if not per_minute:
+        return
+    now = time.monotonic()
+    while ask_limit and now - ask_limit[0] > 60:
+        ask_limit.popleft()
+    if len(ask_limit) >= int(per_minute):
+        raise HTTPException(429, "질문이 많아 잠시 쉬고 있습니다. 1분 뒤에 다시 물어봐 주세요.")
+    ask_limit.append(now)
 
 
 @router.post("/ask")
 def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_session)):
     """자유 질문. 조치 후보와 같은 가드레일을 거친다 (LLM 미연결이면 규칙 안내).
-    질문과 답은 대화 내역으로 저장한다."""
+    질문과 답은 대화 내역으로 저장한다. 읽기 전용이면 방문자 id가 있어야 한다."""
+    if os.environ.get("VPD_READONLY") == "1" and body.visitor is None:
+        raise HTTPException(422, "visitor is required in read-only demo")
     gh = get_greenhouse(greenhouse_id, session)
     fact, reason = _fact_or_reason(session, gh)
     if fact is None:
         raise HTTPException(409, reason)
+    _check_ask_limit()
     hour = datetime.fromisoformat(fact["observed_at"])
-    # 후속 질문용 앞 대화: 같은 정시(같은 사실 시트)의 최근 3개만. 다른 정시 답에 든 숫자는 지금
-    # 사실 시트에 없어서, LLM이 따라 쓰면 가드레일에 막힌다.
+    # 후속 질문용 앞 대화: 같은 방문자, 같은 정시(같은 사실 시트)의 최근 3개만. 다른 정시 답에 든
+    # 숫자는 지금 사실 시트에 없어서, LLM이 따라 쓰면 가드레일에 막힌다.
     recent = session.exec(
-        select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == gh.id, AdviceQuestion.observed_at == hour)
+        select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == gh.id, AdviceQuestion.observed_at == hour,
+                                     AdviceQuestion.visitor == body.visitor)
         .order_by(AdviceQuestion.id.desc()).limit(HISTORY_TURNS)
     ).all()
     history = [{"question": r.question, "answer": r.answer} for r in reversed(recent)]
@@ -156,6 +182,7 @@ def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_ses
         greenhouse_id=gh.id, observed_at=hour,
         vpd=fact["current"]["vpd"], question=body.question, answer=result["answer"],
         source=result["source"], note=result.get("note", ""), violations=result["violations"],
+        visitor=body.visitor,
     )
     session.add(row)
     session.commit()
@@ -164,11 +191,14 @@ def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_ses
 
 
 @router.get("/questions")
-def questions(greenhouse_id: int, limit: int = 50, session: Session = Depends(get_session)):
-    """대화 내역. 최근 limit개를 오래된 것부터 (채팅 화면 순서)."""
+def questions(greenhouse_id: int, limit: int = 50, visitor: str | None = None,
+              session: Session = Depends(get_session)):
+    """대화 내역. 최근 limit개를 오래된 것부터 (채팅 화면 순서). visitor를 주면 그 방문자 것만,
+    안 주면 방문자 없는(온실 주인) 대화만 — 공개 데모에서 남의 대화가 보이지 않게."""
     get_greenhouse(greenhouse_id, session)
     rows = session.exec(
-        select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == greenhouse_id)
+        select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == greenhouse_id,
+                                     AdviceQuestion.visitor == visitor)
         .order_by(AdviceQuestion.id.desc()).limit(min(max(limit, 1), 200))
     ).all()
     return list(reversed(rows))

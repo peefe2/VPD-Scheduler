@@ -11,7 +11,7 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
 # create_all은 이미 있는 테이블에 새 컬럼을 더하지 않는다. 기존 vpd.db에 나중에 추가한
 # nullable 컬럼만 여기서 ALTER TABLE로 채운다 (마이그레이션 도구 대신).
-ADDED_COLUMNS = [("advicerecord", "guardrail", "JSON")]
+ADDED_COLUMNS = [("advicerecord", "guardrail", "JSON"), ("advicequestion", "visitor", "VARCHAR(64)")]
 
 
 def ensure_columns(engine) -> None:

@@ -10,6 +10,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "lightgbm>=4.7.0",
     "google-genai>=2.34.0",
+    "python-dotenv>=1.2.4",
 ]
 
 [dependency-groups]

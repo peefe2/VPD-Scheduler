@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
-import { useAdvice, useAdviceLogs, useAsk, useDecide, useGreenhouse, useQuestions } from '../../api/hooks'
+import { useAdvice, useAdviceLogs, useAsk, useConfig, useDecide, useGreenhouse, useQuestions } from '../../api/hooks'
 import type { AdviceCandidate, AdviceDecision, FactSheet } from '../../api/types'
 import { hintClass, inputClass, tableClass, tableWrapClass } from '../../components/classes'
 import { ReplayNotice } from '../../components/ReplayNotice'
 import { Badge, Button, Card, Empty, ErrorState, Loading, Notice, PageHeader } from '../../components/ui'
 import { day, kpa, num } from '../../lib/format'
 import { BAND_STATUS, EQUIPMENT } from '../../lib/labels'
+import { visitorId } from '../../lib/visitor'
 import { RequiresApi } from '../placeholder/RequiresApi'
 import s from './advisor.module.css'
 
@@ -116,8 +117,11 @@ const stamp = (iso: string) => `${iso.slice(5, 10)} ${hhmm(iso)}`
 
 function AskCard({ id }: { id: number }) {
   const [q, setQ] = useState('')
-  const { data: history, isLoading } = useQuestions(id)
-  const ask = useAsk(id)
+  const { data: config } = useConfig()
+  // 읽기 전용 공개 데모에서는 브라우저마다 대화를 나눈다 (모드를 알기 전에는 묻지 않는다)
+  const visitor = config?.readonly ? visitorId() : undefined
+  const { data: history, isLoading } = useQuestions(id, visitor)
+  const ask = useAsk(id, visitor)
   const listRef = useRef<HTMLOListElement>(null)
   const count = history?.length ?? 0
 
@@ -130,12 +134,15 @@ function AskCard({ id }: { id: number }) {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const text = q.trim()
-    if (!text || ask.isPending) return
+    if (!text || ask.isPending || !config) return
     ask.mutate(text)
     setQ('')
   }
   return (
-    <Card title="질문하기" sub="답변도 위 근거와 등록 설비 안에서만 합니다. 대화는 이 온실에 저장됩니다.">
+    <Card
+      title="질문하기"
+      sub={`답변도 위 근거와 등록 설비 안에서만 합니다. ${visitor ? '대화는 이 브라우저에서만 보입니다.' : '대화는 이 온실에 저장됩니다.'}`}
+    >
       {isLoading ? (
         <Loading />
       ) : count === 0 && !ask.isPending ? (
@@ -242,6 +249,7 @@ export function AdvisorPage({ id }: { id: number }) {
   const live = gh?.connection_type === 'api' || gh?.connection_type === 'replay'
   const { data: advice, isLoading, error } = useAdvice(id, live)
   const decide = useDecide(id)
+  const readonly = useConfig().data?.readonly ?? false
 
   if (gh && !live) return <RequiresApi title="AI 어드바이저" />
   if (error) return <ErrorState error={error} />
@@ -286,11 +294,12 @@ export function AdvisorPage({ id }: { id: number }) {
                 <CandidateItem
                   key={c.index}
                   c={c}
-                  pending={decide.isPending}
+                  pending={decide.isPending || readonly}
                   onDecide={(d) => decide.mutate({ adviceId: advice.advice_id, index: c.index, decision: d })}
                 />
               ))}
             </ol>
+            {readonly && <p className={hintClass}>읽기 전용 데모라 실행 기록 버튼은 꺼져 있습니다.</p>}
             {decide.error && (
               <div style={{ marginTop: 12 }}>
                 <ErrorState error={decide.error} />

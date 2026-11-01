@@ -96,11 +96,16 @@ def ingest(
     _require_token(session, greenhouse, authorization)
     if greenhouse.connection_type is ConnectionType.REPLAY and greenhouse.holdout_source is None:
         raise HTTPException(409, "replay greenhouse needs holdout_source")
+    return store_measurements(session, greenhouse, batch.measurements)
 
+
+def store_measurements(session: Session, greenhouse: Greenhouse, measurements: list[Measurement]) -> dict:
+    """정시 첫 측정 규칙으로 저장한다 (수집 API와 데모 온실 준비가 같이 쓴다)."""
+    greenhouse_id = greenhouse.id
     counts = {"stored": 0, "replaced": 0, "ignored_not_first": 0,
               "rejected_late": 0, "rejected_humidity_out_of_range": 0}
     # 이른 측정부터 처리하면 같은 정시의 뒤 측정은 자연히 "첫 값 아님"이 된다
-    for m in sorted(batch.measurements, key=lambda m: m.measured_at):
+    for m in sorted(measurements, key=lambda m: m.measured_at):
         if not 0 <= m.humidity <= 100:
             counts["rejected_humidity_out_of_range"] += 1
             continue

@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { useGreenhouses } from '../api/hooks'
+import { useConfig, useGreenhouses } from '../api/hooks'
 import { Icon, type IconName } from '../components/Icon'
+import { Notice } from '../components/ui'
 import { connectionLabel } from '../lib/labels'
 import s from './Layout.module.css'
 
@@ -15,6 +16,7 @@ const NAV: { to: string; label: string; icon: IconName; tag?: string }[] = [
 export function Layout() {
   const { ghId } = useParams()
   const { data: greenhouses } = useGreenhouses()
+  const readonly = useConfig().data?.readonly ?? false
   const navigate = useNavigate()
   const location = useLocation()
   const current = greenhouses?.find((g) => g.id === Number(ghId))
@@ -77,14 +79,24 @@ export function Layout() {
               {current.crop} · {connectionLabel(current.connection_type)}
             </span>
           )}
-          <Link to="/onboarding" className={s.newGh}>
-            <Icon name="plus" size={15} />새 온실 등록
-          </Link>
+          {!readonly && (
+            <Link to="/onboarding" className={s.newGh}>
+              <Icon name="plus" size={15} />새 온실 등록
+            </Link>
+          )}
         </div>
       </aside>
 
       <main className={s.main}>
         <div className={s.content}>
+          {readonly && (
+            <div style={{ marginBottom: 16 }}>
+              <Notice tone="info">
+                읽기 전용 데모입니다. 둘러보기와 AI 어드바이저 질문하기만 할 수 있고, 온실 추가·수정과 기록은
+                막혀 있습니다. 질문한 대화는 이 브라우저에서만 보입니다.
+              </Notice>
+            </div>
+          )}
           <Outlet />
         </div>
       </main>

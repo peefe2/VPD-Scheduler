@@ -24,8 +24,14 @@ https://claude.ai/artifact/KV6xSYN2YdvAw18XN5KUMP)에서 정한 화면·문구�
 ## 구조 · 실행
 
 - `backend/` — FastAPI + SQLModel(SQLite) + pandas + LightGBM, uv로 관리 (Python 3.12).
-  - 실행: `cd backend; uv run uvicorn app.main:app --reload` (포트 8000). AI 어드바이저 LLM을 켜려면
-    `VPD_ADVISOR_LLM=1`, `GEMINI_API_KEY` 환경변수 (아래 "AI 어드바이저 계약")
+  - 실행: `cd backend; uv run uvicorn app.serve:app --port 8000` 또는 저장소의 `start.cmd` 더블클릭
+    (백엔드·프론트 창을 열고 브라우저까지). **`app.serve`가 진입점** — `backend/.env`를 읽고(이미 있는
+    환경변수가 우선), API를 `/api` 아래에, `frontend/dist`가 있으면 화면을 `/`에 둔다(`app/spa.py`,
+    화면 주소는 index.html로). 프론트 개발 서버는 `/api`를 그대로 8000으로 넘긴다. 테스트는 `app.main`만
+    import해서 `.env`(실제 키)를 읽지 않는다.
+  - 설정(`backend/.env`, 양식 `.env.example`, git 제외): `GEMINI_API_KEY`, `VPD_ADVISOR_LLM=1` (아래
+    "AI 어드바이저 계약"), `VPD_DEMO=1` 데모 온실 자동 준비(`app/demo.py`), `VPD_READONLY=1` 읽기 전용
+    공개 데모, `VPD_ASK_PER_MINUTE` 질문 수 상한. 화면은 `GET /api/config`로 모드를 안다.
   - 테스트: `cd backend; uv run pytest`
   - `app/vpd.py` VPD 계산·정시 리샘플링 · `app/routers/` 온실 CRUD·CSV 업로드·수집 API(`ingest`)·
     백테스트·캘린더·오늘(`today`)·어드바이저(`advisor`) · `app/advisor.py` 사실 시트·가드레일·규칙 후보 · `app/calendar.py` 날짜별 대역 안 시간 집계
@@ -449,10 +455,24 @@ LightGBM 고정 vs persistence RMSE 개선율, 온실 하나씩 빼고 학습, �
    화면(프론트) — 온보딩·캘린더·모델 신뢰도·온실 설정 구현 (2026-10-12).
 2. 백테스트 · 자동 전환 상태 머신 — **백엔드 완료** (위 규칙, 테스트 포함).
 3. 수집 API 연결 경로 — **수집 API·오늘 화면 완료** (2026-10-18), **온실별 토큰 인증 완료**
-   (2026-10-31). 알림(푸시)·웹 화면 로그인은 미구현.
+   (2026-10-31). 알림(푸시)·웹 화면 로그인은 미구현 — 그래서 인터넷 공개는 읽기 전용 데모로만.
 4. AI 어드바이저 — **사실 시트·가드레일·규칙 후보·선택 기록·화면 완료** (2026-10-31), **Gemini 연동
    완료** (2026-10-31, 기본 꺼짐). 실제 키로 응답 품질 확인은 남음.
 - 대역 변경 이력 — **완료** (2026-10-31).
+- **데모·공개 시연 (2026-11-01)**:
+  - 데모 온실 자동 준비(`VPD_DEMO=1`, `app/demo.py`): "데모 온실 (farm3 재생)"을 재생 모드·holdout
+    farm3_2023·설비 6종으로 만들고, 재생 스크립트와 같은 규칙(날짜만 이동, 앞 35일이 지난 이력)으로
+    지금 시각까지 DB에 바로 넣는다(`ingest.store_measurements` 재사용). 다시 켜면 처음 이동 일수 그대로
+    빈 정시만 채운다. 켜져 있는 동안은 새 정시가 안 들어온다. 원본 84일치라 약 7주 뒤엔 더 채울 값이 없다.
+  - 읽기 전용(`VPD_READONLY=1`, `main.readonly_guard`): GET 외 요청은 403, 예외는 `/advisor/ask`뿐.
+    방문자 대화 분리: 화면이 브라우저별 id(`lib/visitor.ts`, localStorage)를 `visitor`로 보내고, 대화
+    저장·조회·후속 질문 맥락을 방문자별로 나눈다(방문자 없는 조회는 온실 주인 대화만). 질문 수 상한
+    (`VPD_ASK_PER_MINUTE`, 프로세스 메모리, 넘으면 429 "1분 뒤").
+  - 배포: `Dockerfile`(프론트 빌드 → 백엔드 한 서버, 기본 데모·읽기 전용·분당 10) + `render.yaml`(Render
+    무료, 키는 대시보드 비밀값). **이 PC에 Docker가 없어 이미지 빌드는 아직 못 해 봤다** — 같은 단계를
+    로컬에서 직접 실행해(`app.serve`, 읽기 전용·데모·Gemini) 화면·차단·방문자 분리·질문까지 확인함.
+  - 남은 것: 가드레일에 막힌 조치 후보의 원래 위반 이유가 기록에 안 남는다(대체된 규칙 후보의 검사
+    결과만 저장). 조치 후보 입력에는 아직 "필요한 방향" 줄이 없어서 +6h 참고값을 근거처럼 말한 사례가 있다.
 - **적정 대역 추천 (작물 + 생육 단계 입력, 결정 2026-10-31)** — 문헌 표 초안만 있음
   (`research/band_literature.md`, 검토 전). 데이터 점유율로 추천하지 않는다. 생육 단계별 VPD
   근거가 매우 적어서, 근거 있는 칸만 추천하고 없으면 "근거 부족 — 기본값 유지"로 안내하는 방식.

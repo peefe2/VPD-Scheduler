@@ -9,7 +9,7 @@ export const keys = {
   today: (id: number) => ['greenhouses', id, 'today'] as const,
   advice: (id: number) => ['greenhouses', id, 'advice'] as const,
   adviceLogs: (id: number) => ['greenhouses', id, 'advice-logs'] as const,
-  questions: (id: number) => ['greenhouses', id, 'questions'] as const,
+  questions: (id: number, visitor?: string) => ['greenhouses', id, 'questions', visitor ?? ''] as const,
   calendar: (id: number, start?: string, end?: string) =>
     ['greenhouses', id, 'calendar', start ?? '', end ?? ''] as const,
 }
@@ -51,15 +51,18 @@ export function useDecide(id: number) {
   })
 }
 
-export const useQuestions = (id: number) =>
-  useQuery({ queryKey: keys.questions(id), queryFn: () => api.questions(id) })
+export const useConfig = () => useQuery({ queryKey: ['config'], queryFn: api.config, staleTime: Infinity })
 
-export function useAsk(id: number) {
+export const useQuestions = (id: number, visitor?: string) =>
+  useQuery({ queryKey: keys.questions(id, visitor), queryFn: () => api.questions(id, visitor) })
+
+export function useAsk(id: number, visitor?: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (question: string) => api.ask(id, question),
+    mutationFn: (question: string) => api.ask(id, question, visitor),
     // 다시 읽는 사이 방금 질문이 잠깐 사라지지 않게 받은 답을 바로 붙인다
-    onSuccess: (row) => qc.setQueryData<AdviceQuestion[]>(keys.questions(id), (old) => [...(old ?? []), row]),
+    onSuccess: (row) =>
+      qc.setQueryData<AdviceQuestion[]>(keys.questions(id, visitor), (old) => [...(old ?? []), row]),
   })
 }
 

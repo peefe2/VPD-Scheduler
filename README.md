@@ -65,11 +65,22 @@ cd ../frontend
 npm install
 ```
 
-## 실행 (터미널 2개)
+## 실행
+
+### 가장 쉬운 방법: `start.cmd` 더블클릭 (Windows)
+
+프로젝트 폴더의 **`start.cmd`** 를 더블클릭하면 "VPD 백엔드"·"VPD 프론트" 창이 열리고, 준비되면
+브라우저(http://localhost:5173)가 뜹니다. 끄려면 두 창을 닫습니다.
+
+처음 실행하면 `backend\.env` 를 만들어 메모장으로 엽니다. `GEMINI_API_KEY=` 뒤에 키를 붙여 넣고 저장한
+뒤 메모장을 닫으면 계속 진행합니다(키가 없으면 그냥 닫아도 됩니다). 기본 설정(`VPD_DEMO=1`)이면
+**"데모 온실 (farm3 재생)"이 자동으로 만들어져** 바로 AI 어드바이저까지 볼 수 있습니다.
+
+### 직접 실행 (터미널 2개)
 
 ```
 cd backend
-uv run uvicorn app.main:app --port 8000
+uv run uvicorn app.serve:app --port 8000
 ```
 
 ```
@@ -77,27 +88,36 @@ cd frontend
 npm run dev
 ```
 
-브라우저에서 http://localhost:5173 을 엽니다. Windows에서는 `--reload`를 붙이면 코드 변경 후 재시작이
-멈추거나 예전 코드로 응답할 때가 있어, 시연 때는 빼는 편이 안전합니다.
+브라우저에서 http://localhost:5173 을 엽니다. `app.serve`가 `backend/.env`를 읽고, API를 `/api` 아래에
+둡니다(프론트 개발 서버가 `/api`를 8000으로 넘김). Windows에서는 `--reload`를 붙이면 코드 변경 후
+재시작이 멈추거나 예전 코드로 응답할 때가 있어, 시연 때는 빼는 편이 안전합니다.
 
-### AI 어드바이저 LLM 켜기 (선택)
+### 설정 (`backend/.env`)
 
-기본은 규칙 기반 안내만 합니다. Gemini 답변을 쓰려면 [Google AI Studio](https://aistudio.google.com/)에서
-API 키(무료 등급)를 받아, 백엔드를 실행하는 PowerShell 창에서 환경변수를 넣고 실행합니다.
+`backend/.env.example`을 복사해 `backend/.env`로 저장하고 값을 채웁니다. `.env`는 git에 올라가지 않습니다.
 
-```powershell
-$env:GEMINI_API_KEY = "<발급받은 키>"
-$env:VPD_ADVISOR_LLM = "1"
-cd backend; uv run uvicorn app.main:app --port 8000
-```
+| 항목 | 뜻 |
+|---|---|
+| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/)에서 각자 받는 무료 키. **남에게 공유하거나 git에 넣지 않습니다** |
+| `VPD_ADVISOR_LLM=1` | AI 어드바이저가 Gemini를 씀 (없으면 규칙 기반 안내만) |
+| `VPD_DEMO=1` | 켤 때 데모 온실을 만들고 지금 시각까지 이력을 채움 |
+| `VPD_READONLY=1` | 읽기 전용 공개 데모 — 온실 추가·수정·기록을 막고 질문하기만 열어 둠 |
+| `VPD_ASK_PER_MINUTE` | 1분에 받는 질문 수 상한 (공개 데모에서 무료 키 한도 보호) |
 
-키는 코드나 git에 넣지 않습니다. 모델은 `VPD_ADVISOR_MODEL`로 바꿀 수 있습니다(기본 `gemini-3.5-flash-lite`, 응답 약 4초).
+모델은 `VPD_ADVISOR_MODEL`로 바꿀 수 있습니다(기본 `gemini-3.5-flash-lite`, 응답 약 4초).
 LLM 답변은 "모델 사용" 상태 지평이 있을 때만 쓰이고, 가드레일을 통과하지 못하거나 호출이 실패하면
 규칙 기반 안내로 대체됩니다. 무료 등급은 보낸 내용이 Google 제품 개선에 쓰일 수 있습니다(온실 측정값만 보냅니다).
 
-## 시연: 재생 모드
+## 데모 온실 (자동)
 
-실제 센서 대신 연구 데이터(farm3)를 날짜만 오늘로 옮겨 정시마다 흘려보냅니다.
+`VPD_DEMO=1`이면 백엔드가 켤 때 연구 데이터(farm3)를 날짜만 오늘로 옮겨 "데모 온실 (farm3 재생)"에
+넣습니다. 앞 35일이 지난 이력이라 켜자마자 모델 예측과 AI 어드바이저가 동작합니다. 켜져 있는 동안
+새 정시는 들어오지 않으니, 시연 직전에 다시 켜면 그 시각까지 채워집니다.
+
+## 시연: 재생 모드 (직접)
+
+실제 센서 대신 연구 데이터(farm3)를 날짜만 오늘로 옮겨 정시마다 흘려보냅니다. 데모 온실과 달리
+켜 두는 동안 매 정시 값이 실제로 들어옵니다.
 
 1. 화면에서 새 온실 등록 — 데모 설정의 학습 온실에 `farm3_2023` 선택
 2. 데이터 연결 단계에서 "재생 모드" 선택 → "토큰 발급"을 누르면 토큰이 들어간 명령이 나옵니다.
@@ -112,6 +132,20 @@ LLM 답변은 "모델 사용" 상태 지평이 있을 때만 쓰이고, 가드�
    (표시 시각이 실제보다 앞서 나감). 멈추려면 Ctrl+C.
 
 재생 온실은 모든 화면에 "재생 데이터, 이 온실의 실측이 아님" 안내가 뜹니다.
+
+## 공개 시연 배포 (Render, 무료)
+
+웹 화면에 로그인이 없어서, 인터넷에 올릴 때는 **읽기 전용 데모**로만 올립니다. `Dockerfile`이 프론트를
+빌드해 백엔드 한 서버로 묶고, 기본값으로 `VPD_DEMO=1`, `VPD_READONLY=1`, `VPD_ASK_PER_MINUTE=10`을 켭니다.
+
+1. [Render](https://render.com)에 GitHub 계정으로 가입
+2. 대시보드에서 **New → Blueprint** → 이 저장소 선택 (`render.yaml`대로 만든다)
+3. `GEMINI_API_KEY` 값을 묻는 칸에 키를 넣고 만들기 — 빌드에 몇 분 걸립니다
+4. 생긴 주소(`https://vpd-scheduler-demo.onrender.com` 같은)를 공유
+
+무료 플랜은 15분 동안 접속이 없으면 잠들어서, 다음 접속 때 깨어나는 데 1분쯤 걸립니다. 저장 공간이
+유지되지 않아 깨어날 때마다 DB가 새로 생기고 데모 온실도 그 시각까지 다시 만들어집니다(방문자 대화도
+이때 지워집니다). 방문자 모두가 키 하나를 같이 쓰므로, 질문이 몰리면 "1분 뒤 다시"가 뜰 수 있습니다.
 
 ## 테스트
 

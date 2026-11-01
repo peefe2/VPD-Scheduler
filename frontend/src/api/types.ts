@@ -228,6 +228,13 @@ export interface IssuedIngestToken {
   created_at: string
 }
 
+/** 서버 실행 모드. readonly면 공개 시연용 보기 전용 (질문하기만 가능) */
+export interface AppConfig {
+  readonly: boolean
+  demo: boolean
+  llm: boolean
+}
+
 /** 질문하기 대화 1건 (질문 + 답). 서버에 저장되어 채팅처럼 다시 불러온다 */
 export interface AdviceQuestion {
   id: number
