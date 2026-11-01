@@ -113,6 +113,21 @@ class AdviceRecord(SQLModel, table=True):
     guardrail: dict | None = Field(default=None, sa_column=Column(JSON))
 
 
+class AdviceQuestion(SQLModel, table=True):
+    """질문하기 대화 1건 = 질문 + 답. 화면에서 채팅처럼 다시 보여주고, 그때 근거(정시·VPD)를 남긴다."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    greenhouse_id: int = Field(foreign_key="greenhouse.id", index=True)
+    asked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    observed_at: NaiveDatetime  # 답의 근거가 된 정시 (온실 현지 시각)
+    vpd: float  # 그 정시의 VPD (사실 시트 값)
+    question: str
+    answer: str
+    source: str  # "rule" | "llm"
+    note: str = ""  # 규칙 안내로 대체된 이유
+    violations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+
 class AdviceDecision(SQLModel, table=True):
     """후보별 "실행함"/"이번엔 안 함". 같은 후보를 다시 누르면 바꾼다. 설비 명령이 아니다."""
 

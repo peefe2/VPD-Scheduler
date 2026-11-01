@@ -7,7 +7,7 @@ from sqlmodel import Session, delete, select
 
 from app.advisor import answer_question, build_fact_sheet, make_advice, situation
 from app.db import get_session
-from app.models import AdviceDecision, AdviceRecord, ConnectionType, Greenhouse, Reading
+from app.models import AdviceDecision, AdviceQuestion, AdviceRecord, ConnectionType, Greenhouse, Reading
 from app.routers.greenhouses import get_greenhouse
 from app.routers.today import today_payload
 from app.today import band_status
@@ -15,6 +15,7 @@ from app.today import band_status
 router = APIRouter(prefix="/greenhouses/{greenhouse_id}/advisor", tags=["advisor"])
 
 LIVE = {ConnectionType.API, ConnectionType.REPLAY}
+HISTORY_TURNS = 3  # 후속 질문에 같이 보내는 앞 대화 수
 
 
 def _unavailable(reason: str) -> dict:
@@ -136,9 +137,38 @@ class QuestionIn(BaseModel):
 
 @router.post("/ask")
 def ask(greenhouse_id: int, body: QuestionIn, session: Session = Depends(get_session)):
-    """자유 질문. 조치 후보와 같은 가드레일을 거친다 (LLM 미연결이면 규칙 안내)."""
+    """자유 질문. 조치 후보와 같은 가드레일을 거친다 (LLM 미연결이면 규칙 안내).
+    질문과 답은 대화 내역으로 저장한다."""
     gh = get_greenhouse(greenhouse_id, session)
     fact, reason = _fact_or_reason(session, gh)
     if fact is None:
         raise HTTPException(409, reason)
-    return answer_question(body.question, fact)
+    hour = datetime.fromisoformat(fact["observed_at"])
+    # 후속 질문용 앞 대화: 같은 정시(같은 사실 시트)의 최근 3개만. 다른 정시 답에 든 숫자는 지금
+    # 사실 시트에 없어서, LLM이 따라 쓰면 가드레일에 막힌다.
+    recent = session.exec(
+        select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == gh.id, AdviceQuestion.observed_at == hour)
+        .order_by(AdviceQuestion.id.desc()).limit(HISTORY_TURNS)
+    ).all()
+    history = [{"question": r.question, "answer": r.answer} for r in reversed(recent)]
+    result = answer_question(body.question, fact, history=history)
+    row = AdviceQuestion(
+        greenhouse_id=gh.id, observed_at=hour,
+        vpd=fact["current"]["vpd"], question=body.question, answer=result["answer"],
+        source=result["source"], note=result.get("note", ""), violations=result["violations"],
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+@router.get("/questions")
+def questions(greenhouse_id: int, limit: int = 50, session: Session = Depends(get_session)):
+    """대화 내역. 최근 limit개를 오래된 것부터 (채팅 화면 순서)."""
+    get_greenhouse(greenhouse_id, session)
+    rows = session.exec(
+        select(AdviceQuestion).where(AdviceQuestion.greenhouse_id == greenhouse_id)
+        .order_by(AdviceQuestion.id.desc()).limit(min(max(limit, 1), 200))
+    ).all()
+    return list(reversed(rows))

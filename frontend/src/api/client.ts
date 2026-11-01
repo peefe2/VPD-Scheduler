@@ -3,7 +3,7 @@ import type {
   BandVersion,
   AdviceLog,
   AdviceResponse,
-  AskResponse,
+  AdviceQuestion,
   Backtest,
   CalendarResponse,
   ColumnMapping,
@@ -82,7 +82,9 @@ export const api = {
       json('POST', { candidate_index: candidateIndex, decision }),
     ),
   adviceLogs: (id: number) => request<AdviceLog[]>(`/greenhouses/${id}/advisor/logs`),
-  ask: (id: number, question: string) => request<AskResponse>(`/greenhouses/${id}/advisor/ask`, json('POST', { question })),
+  ask: (id: number, question: string) =>
+    request<AdviceQuestion>(`/greenhouses/${id}/advisor/ask`, json('POST', { question })),
+  questions: (id: number) => request<AdviceQuestion[]>(`/greenhouses/${id}/advisor/questions`),
   calendar: (id: number, start?: string, end?: string) => {
     const q = new URLSearchParams()
     if (start) q.set('start', start)

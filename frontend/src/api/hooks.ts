@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { AdviceDecision, ColumnMapping, GreenhouseInput } from './types'
+import type { AdviceDecision, AdviceQuestion, ColumnMapping, GreenhouseInput } from './types'
 
 export const keys = {
   greenhouses: ['greenhouses'] as const,
@@ -9,6 +9,7 @@ export const keys = {
   today: (id: number) => ['greenhouses', id, 'today'] as const,
   advice: (id: number) => ['greenhouses', id, 'advice'] as const,
   adviceLogs: (id: number) => ['greenhouses', id, 'advice-logs'] as const,
+  questions: (id: number) => ['greenhouses', id, 'questions'] as const,
   calendar: (id: number, start?: string, end?: string) =>
     ['greenhouses', id, 'calendar', start ?? '', end ?? ''] as const,
 }
@@ -50,7 +51,17 @@ export function useDecide(id: number) {
   })
 }
 
-export const useAsk = (id: number) => useMutation({ mutationFn: (question: string) => api.ask(id, question) })
+export const useQuestions = (id: number) =>
+  useQuery({ queryKey: keys.questions(id), queryFn: () => api.questions(id) })
+
+export function useAsk(id: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (question: string) => api.ask(id, question),
+    // 다시 읽는 사이 방금 질문이 잠깐 사라지지 않게 받은 답을 바로 붙인다
+    onSuccess: (row) => qc.setQueryData<AdviceQuestion[]>(keys.questions(id), (old) => [...(old ?? []), row]),
+  })
+}
 
 export const useCalendar = (id: number, start?: string, end?: string) =>
   useQuery({

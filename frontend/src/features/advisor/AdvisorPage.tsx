@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { useAdvice, useAdviceLogs, useAsk, useDecide, useGreenhouse } from '../../api/hooks'
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useAdvice, useAdviceLogs, useAsk, useDecide, useGreenhouse, useQuestions } from '../../api/hooks'
 import type { AdviceCandidate, AdviceDecision, FactSheet } from '../../api/types'
 import { hintClass, inputClass, tableClass, tableWrapClass } from '../../components/classes'
 import { ReplayNotice } from '../../components/ReplayNotice'
@@ -111,15 +111,59 @@ function FactCard({ f }: { f: FactSheet }) {
   )
 }
 
+// "10-01 09:00" — 재생 온실은 날짜가 옮겨져 있어 날짜도 함께 보여준다
+const stamp = (iso: string) => `${iso.slice(5, 10)} ${hhmm(iso)}`
+
 function AskCard({ id }: { id: number }) {
   const [q, setQ] = useState('')
+  const { data: history, isLoading } = useQuestions(id)
   const ask = useAsk(id)
+  const listRef = useRef<HTMLOListElement>(null)
+  const count = history?.length ?? 0
+
+  // 새 대화가 생기면 맨 아래(최신)로 내린다
+  useEffect(() => {
+    const el = listRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [count, ask.isPending])
+
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (q.trim()) ask.mutate(q.trim())
+    const text = q.trim()
+    if (!text || ask.isPending) return
+    ask.mutate(text)
+    setQ('')
   }
   return (
-    <Card title="질문하기" sub="답변도 위 근거와 등록 설비 안에서만 합니다.">
+    <Card title="질문하기" sub="답변도 위 근거와 등록 설비 안에서만 합니다. 대화는 이 온실에 저장됩니다.">
+      {isLoading ? (
+        <Loading />
+      ) : count === 0 && !ask.isPending ? (
+        <p className={hintClass}>아직 대화가 없습니다. 지금 상황에 대해 물어보세요.</p>
+      ) : (
+        <ol className={s.chat} ref={listRef} aria-label="대화 내역">
+          {history?.map((h) => (
+            <Fragment key={h.id}>
+              <li className={s.mine}>{h.question}</li>
+              <li className={s.theirs}>
+                {h.answer}
+                <p className={s.answerMeta}>
+                  {h.source === 'llm' ? 'AI 답변' : '규칙 기반 안내'} · {stamp(h.observed_at)} 정시 VPD {kpa(h.vpd)} kPa
+                  {h.note ? ` · ${h.note}` : ''}
+                </p>
+              </li>
+            </Fragment>
+          ))}
+          {ask.isPending && (
+            <>
+              <li className={s.mine}>{ask.variables}</li>
+              <li className={s.theirs} data-pending="true" aria-live="polite">
+                확인 중…
+              </li>
+            </>
+          )}
+        </ol>
+      )}
       <form className={s.ask} onSubmit={submit}>
         <label htmlFor="advisor-q" className="visually-hidden">
           질문
@@ -139,15 +183,6 @@ function AskCard({ id }: { id: number }) {
       {ask.error && (
         <div style={{ marginTop: 12 }}>
           <ErrorState error={ask.error} />
-        </div>
-      )}
-      {ask.data && (
-        <div className={s.answer} aria-live="polite">
-          {ask.data.answer}
-          <p className={s.answerMeta}>
-            {ask.data.source === 'llm' ? 'AI 답변' : '규칙 기반 안내'}
-            {ask.data.note ? ` · ${ask.data.note}` : ''}
-          </p>
         </div>
       )}
     </Card>

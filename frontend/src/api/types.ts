@@ -228,9 +228,15 @@ export interface IssuedIngestToken {
   created_at: string
 }
 
-export interface AskResponse {
+/** 질문하기 대화 1건 (질문 + 답). 서버에 저장되어 채팅처럼 다시 불러온다 */
+export interface AdviceQuestion {
+  id: number
+  question: string
   answer: string
   source: 'rule' | 'llm'
-  note?: string
+  note: string
   violations: string[]
+  observed_at: string // 답의 근거가 된 정시 (온실 현지 시각)
+  vpd: number
+  asked_at: string
 }

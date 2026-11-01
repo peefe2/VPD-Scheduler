@@ -344,16 +344,24 @@ def direction_lines(fact: dict) -> list[str]:
     return lines
 
 
-def answer_with_llm(question: str, fact: dict, rejected: tuple[str, list[str]] | None = None) -> str | None:
+def answer_with_llm(question: str, fact: dict, rejected: tuple[str, list[str]] | None = None,
+                    history: list[dict] | None = None) -> str | None:
     """자유 질문 답변. 꺼져 있으면 None. 출력은 check_text를 통과해야 쓰인다.
-    rejected = (가드레일에 막힌 이전 답, 위반 목록)이면 그 이유를 알려주고 다시 묻는다."""
+    rejected = (가드레일에 막힌 이전 답, 위반 목록)이면 그 이유를 알려주고 다시 묻는다.
+    history = 같은 정시의 앞 대화 [{question, answer}] (오래된 것부터) — "그럼 난방은?" 같은 후속 질문용."""
     client = llm_client()
     if client is None:
         return None
     # 작은 모델은 시스템 프롬프트보다 이 메시지를 더 따른다: 설비를 한글로, 방향별로 못박고,
     # "사실 시트"라는 말은 넣지 않는다 (답변에 그대로 따라 나왔다)
     guide = "\n".join(direction_lines(fact) + ["등록되지 않은 설비는 이름도 쓰지 않는다."])
-    user = f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n{guide}\n\n질문: {question}"
+    user = f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n{guide}\n\n"
+    if history:
+        turns = "\n".join(f"사용자: {h['question']}\n도우미: {h['answer']}" for h in history)
+        # 앞 답의 상황 설명("VPD는 0.28로 대역 아래…")을 매번 되풀이했다 (실측 2026-11-01)
+        user += (f"이전 대화 (오래된 것부터, 후속 질문을 이해하는 데만 쓴다):\n{turns}\n"
+                 "앞 답에서 이미 말한 상황 설명은 되풀이하지 말고, 이번에 새로 물은 것에 바로 답한다.\n\n")
+    user += f"질문: {question}"
     if rejected:
         answer, violations = rejected
         user += (f"\n\n이전 답변: {answer}\n이 답변은 다음 이유로 쓸 수 없었다: {'; '.join(violations)}.\n"
@@ -398,7 +406,7 @@ def unregistered_in_question(question: str, fact: dict) -> list[str]:
     return names + ["환기 설비"] if generic_vent and not asked else names
 
 
-def answer_question(question: str, fact: dict) -> dict:
+def answer_question(question: str, fact: dict, history: list[dict] | None = None) -> dict:
     # 미등록 설비만 묻는 질문은 LLM이 그 이름을 다시 써서 가드레일에 막히므로(실측) 바로 답한다.
     # 설비 이름은 사용자가 쓴 말이라 "등록 설비만 언급" 계약과 부딪히지 않는다.
     if names := unregistered_in_question(question, fact):
@@ -410,11 +418,11 @@ def answer_question(question: str, fact: dict) -> dict:
     llm, fallback, violations = None, "", []
     if fact["mode"] == "model":
         try:
-            llm = answer_with_llm(question, fact)
+            llm = answer_with_llm(question, fact, history=history)
             if llm is not None and not (first := check_text(llm, fact)).passed:
                 # 막힌 이유를 알려주고 한 번만 다시 묻는다. 재질문이 실패하면 llm은 첫 답 그대로라
                 # 아래에서 가드레일 실패로 처리된다.
-                llm = answer_with_llm(question, fact, rejected=(llm, first.violations))
+                llm = answer_with_llm(question, fact, rejected=(llm, first.violations), history=history)
         except LLMError:
             fallback = LLM_FAILED
     if llm is not None:

@@ -142,19 +142,48 @@
 .ask {
   display: flex;
   gap: 10px;
+  margin-top: 14px;
 }
 
 .ask input {
   flex: 1;
 }
 
-.answer {
-  margin-top: 14px;
+/* 질문하기 대화: 질문은 오른쪽, 답은 왼쪽 말풍선. 길어지면 안에서 스크롤 */
+.chat {
+  margin: 0;
+  padding: 2px 2px 4px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.mine,
+.theirs {
+  max-width: 85%;
+  padding: 10px 14px;
   border-radius: var(--radius-m);
-  background: var(--surface-muted);
-  padding: 12px 14px;
   font-size: 14px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.mine {
+  align-self: flex-end;
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-2);
+}
+
+.theirs {
+  align-self: flex-start;
+  background: var(--surface-muted);
+}
+
+.theirs[data-pending='true'] {
+  color: var(--ink-3);
 }
 
 .answerMeta {

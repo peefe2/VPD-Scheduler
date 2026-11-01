@@ -8,6 +8,7 @@ from app.db import get_session
 from app.forecast import loso_sources
 from app.models import (
     AdviceDecision,
+    AdviceQuestion,
     AdviceRecord,
     BandVersion,
     Greenhouse,
@@ -94,6 +95,7 @@ def delete_greenhouse(greenhouse_id: int, session: Session = Depends(get_session
     advice_ids = select(AdviceRecord.id).where(AdviceRecord.greenhouse_id == greenhouse_id)
     session.exec(delete(AdviceDecision).where(AdviceDecision.advice_id.in_(advice_ids)))
     session.exec(delete(AdviceRecord).where(AdviceRecord.greenhouse_id == greenhouse_id))
+    session.exec(delete(AdviceQuestion).where(AdviceQuestion.greenhouse_id == greenhouse_id))
     session.exec(delete(Reading).where(Reading.greenhouse_id == greenhouse_id))
     session.delete(greenhouse)
     session.commit()

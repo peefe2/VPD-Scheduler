@@ -172,6 +172,24 @@ def test_answer_input_says_watch_when_in_band_and_staying(monkeypatch):
     assert "지금 권할 수 있는 설비" not in got and got["등록된 설비"].startswith("제습기, 난방, 천창·측창")
 
 
+# ---------------------------------------------------------------- 후속 질문 (앞 대화 전달)
+
+def test_follow_up_sends_previous_turns_in_order(monkeypatch):
+    fake = use_fake(monkeypatch, output_text="난방을 검토하는 방안입니다.")
+    history = [{"question": "지금 뭐 해야 해?", "answer": "제습기를 검토하는 방안입니다."},
+               {"question": "왜?", "answer": "대역 아래라서입니다."}]
+    answer_question("그럼 난방은?", fact(forecasts=MODEL_FC), history=history)
+    sent = fake.calls[0]["input"]
+    order = ["지금 뭐 해야 해?", "제습기를 검토하는 방안입니다.", "왜?", "대역 아래라서입니다.", "질문: 그럼 난방은?"]
+    assert [sent.index(x) for x in order] == sorted(sent.index(x) for x in order)
+
+
+def test_no_history_means_no_previous_section(monkeypatch):
+    fake = use_fake(monkeypatch, output_text="방안입니다.")
+    answer_question("지금 뭐 해야 해?", fact(forecasts=MODEL_FC))
+    assert "이전 대화" not in fake.calls[0]["input"]
+
+
 # ---------------------------------------------------------------- 미등록 설비 질문
 
 def test_question_about_unregistered_equipment_answered_without_llm(monkeypatch):
