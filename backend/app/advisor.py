@@ -226,6 +226,7 @@ DEFAULT_MODEL = "gemini-3.5-flash-lite"
 TIMEOUT_SECONDS = 20.0
 LLM_FAILED = "AI 응답을 받지 못해 규칙 기반 안내로 대체했습니다."
 GUARDRAIL_FAILED = "AI 답변이 가드레일을 통과하지 못해 규칙 기반 안내로 대체했습니다."
+UNREGISTERED_NOTE = "등록되지 않은 설비에 대한 질문이라 AI에 묻지 않았습니다."
 
 CONTRACT = """\
 너는 스마트팜 온실의 VPD(수증기압차) 관리 도우미다. 입력은 서버가 계산한 "사실 시트" JSON이다.
@@ -237,7 +238,8 @@ CONTRACT = """\
 - current.band_status 뜻: below=대역 아래(VPD가 낮음, 과습 쪽), above=대역 위(VPD가 높음, 건조 쪽),
   in=대역 안. in이면 지켜보기를 먼저 권하고, forecasts에서 대역을 벗어나는 지평이 있을 때만
   그 방향의 조치를 검토 방안으로 낸다. 사실 시트에 없는 상태(습도가 높다 등)를 지어내지 않는다.
-- VPD가 대역을 벗어나는 시각이나 시점을 예측하거나 단정하지 않는다.
+- VPD가 대역을 벗어나는 시각이나 시점을 예측하거나 단정하지 않는다. forecasts에서 reference가
+  true인 값(+6h)은 참고값이라 "예상된다"처럼 말하지 않는다.
 - 다음 표현은 쓰지 않는다: 자동으로, 자동 제어, 정확히, 정확하게, 예고, 반드시, 보장.
 - 너는 설비를 제어하지 않는다. 사람이 판단할 "방안"으로만 말한다.
 - 읽는 사람은 농가다. "사실 시트", JSON, 필드명, 영문 설비 코드는 쓰지 않는다. 설비는 위의 한글
@@ -319,16 +321,43 @@ def generate_with_llm(fact: dict) -> list[dict] | None:
     return [c.model_dump() for c in parsed.candidates][:MAX_CANDIDATES]
 
 
-def answer_with_llm(question: str, fact: dict) -> str | None:
-    """자유 질문 답변. 꺼져 있으면 None. 출력은 check_text를 통과해야 쓰인다."""
+def direction_lines(fact: dict) -> list[str]:
+    """지금 VPD를 어느 쪽으로 움직여야 하는지와, 그 방향에 맞는/맞지 않는 등록 설비 (규칙 후보와 같은 표).
+    대역 안이면 모델 예측(참고값 제외)이 대역을 벗어나는 방향을 따른다. 등록 설비 전체 목록을 주면
+    작은 모델이 방향과 상관없이 그대로 나열했다 (평가 2026-11-01: 대역 위로 갈 때 난방 권함)."""
+    registered = fact["greenhouse"]["equipment"]
+    status = fact["current"]["band_status"]
+    if status == "in":
+        leaving = [f for f in fact["forecasts"] if not f["reference"] and f["band_status"] != "in"]
+        if not leaving:
+            names = ", ".join(EQUIPMENT_KO[e] for e in registered) or "없음"
+            return ["지금 필요한 방향: 없음(대역 안이고 예측도 대역 안). 설비 조치보다 지켜보기를 먼저 권한다.",
+                    f"등록된 설비: {names}"]
+        status = leaving[0]["band_status"]
+    word, table = ("올리는", RAISE_VPD) if status == "below" else ("내리는", LOWER_VPD)
+    fitting = {eq for eq, _, _ in table}
+    fits = [EQUIPMENT_KO[e] for e in registered if e in fitting]
+    others = [EQUIPMENT_KO[e] for e in registered if e not in fitting]
+    lines = [f"지금 필요한 방향: VPD를 {word} 쪽.", f"지금 권할 수 있는 설비: {', '.join(fits) or '없음'}"]
+    if others:
+        lines.append(f"방향이 맞지 않아 권하지 않는 설비: {', '.join(others)}")
+    return lines
+
+
+def answer_with_llm(question: str, fact: dict, rejected: tuple[str, list[str]] | None = None) -> str | None:
+    """자유 질문 답변. 꺼져 있으면 None. 출력은 check_text를 통과해야 쓰인다.
+    rejected = (가드레일에 막힌 이전 답, 위반 목록)이면 그 이유를 알려주고 다시 묻는다."""
     client = llm_client()
     if client is None:
         return None
-    # 작은 모델은 시스템 프롬프트보다 이 메시지를 더 따른다: 등록 설비를 한글로 못박고,
+    # 작은 모델은 시스템 프롬프트보다 이 메시지를 더 따른다: 설비를 한글로, 방향별로 못박고,
     # "사실 시트"라는 말은 넣지 않는다 (답변에 그대로 따라 나왔다)
-    names = ", ".join(EQUIPMENT_KO[e] for e in fact["greenhouse"]["equipment"]) or "없음"
-    user = (f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n"
-            f"이 온실에 등록된 설비: {names}. 이 밖의 설비는 이름도 쓰지 않는다.\n\n질문: {question}")
+    guide = "\n".join(direction_lines(fact) + ["등록되지 않은 설비는 이름도 쓰지 않는다."])
+    user = f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n{guide}\n\n질문: {question}"
+    if rejected:
+        answer, violations = rejected
+        user += (f"\n\n이전 답변: {answer}\n이 답변은 다음 이유로 쓸 수 없었다: {'; '.join(violations)}.\n"
+                 "이 문제를 고쳐서 같은 질문에 다시 답한다.")
     return _ask_gemini(client, ANSWER_PROMPT, user).strip()
 
 
@@ -357,11 +386,35 @@ def make_advice(fact: dict) -> Advice:
     return Advice(summary, rules, "rule", check_candidates(rules, fact))
 
 
+def unregistered_in_question(question: str, fact: dict) -> list[str]:
+    """질문이 등록되지 않은 설비만 묻고 있으면 그 설비 이름들. 등록 설비가 하나라도 나오면 [].
+    "환기"만 쓰면 천창·측창이나 환기팬 중 하나라도 있어야 등록 설비로 본다 (check_text와 같은 규칙)."""
+    registered = set(fact["greenhouse"]["equipment"])
+    asked = {eq for eq, words in EQUIPMENT_KEYWORDS.items() if any(w in question for w in words)}
+    generic_vent = GENERIC_VENT in question.replace("환기팬", "")
+    if asked & registered or (generic_vent and registered & {"vent", "exhaust_fan"}):
+        return []
+    names = [EQUIPMENT_KO[eq] for eq in EQUIPMENT_KO if eq in asked]
+    return names + ["환기 설비"] if generic_vent and not asked else names
+
+
 def answer_question(question: str, fact: dict) -> dict:
+    # 미등록 설비만 묻는 질문은 LLM이 그 이름을 다시 써서 가드레일에 막히므로(실측) 바로 답한다.
+    # 설비 이름은 사용자가 쓴 말이라 "등록 설비만 언급" 계약과 부딪히지 않는다.
+    if names := unregistered_in_question(question, fact):
+        top = rule_candidates(fact)[0]
+        return {"answer": f"등록 설비에 없는 설비({', '.join(names)})라 안내하지 않습니다. 갖고 계시면 온실 "
+                          f"설정에서 등록해 주세요. 지금 상황에서 먼저 볼 방안: {top['title']}.",
+                "source": "rule", "note": UNREGISTERED_NOTE, "violations": []}
+
     llm, fallback, violations = None, "", []
     if fact["mode"] == "model":
         try:
             llm = answer_with_llm(question, fact)
+            if llm is not None and not (first := check_text(llm, fact)).passed:
+                # 막힌 이유를 알려주고 한 번만 다시 묻는다. 재질문이 실패하면 llm은 첫 답 그대로라
+                # 아래에서 가드레일 실패로 처리된다.
+                llm = answer_with_llm(question, fact, rejected=(llm, first.violations))
         except LLMError:
             fallback = LLM_FAILED
     if llm is not None:

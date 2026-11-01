@@ -5,3 +5,4 @@ node_modules/
 dist/
 .pytest_cache/
 research/data/raw/
+research/eval_out/

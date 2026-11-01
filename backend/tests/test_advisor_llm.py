@@ -25,9 +25,12 @@ class FakeInteractions:
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
-        if self.error:
-            raise self.error
-        return SimpleNamespace(status=self.status, output_text=self.output_text)
+        error = self.error.pop(0) if isinstance(self.error, list) else self.error
+        if error:
+            raise error
+        # 목록이면 부를 때마다 다음 답 (재질문 확인용)
+        text = self.output_text.pop(0) if isinstance(self.output_text, list) else self.output_text
+        return SimpleNamespace(status=self.status, output_text=text)
 
 
 def use_fake(monkeypatch, **kw) -> FakeInteractions:
@@ -122,8 +125,113 @@ def test_answer_input_names_registered_equipment_in_korean(monkeypatch):
     answer_question("환기해도 돼?", fact(equipment=("vent", "heater"), forecasts=MODEL_FC))
     sent = fake.calls[0]["input"]
     assert "사실 시트" not in sent
-    assert "등록된 설비: 천창·측창, 난방" in sent
+    assert "지금 권할 수 있는 설비: 천창·측창, 난방" in sent  # 대역 아래: 둘 다 올리는 쪽
     assert "환기팬" not in sent and "차광막" not in sent
+
+
+# ---------------------------------------------------------------- 필요한 방향 알려주기
+# 평가(2026-11-01)에서 곧 대역 위로 갈 때 "난방"을 권했다 — 난방은 VPD를 더 올린다
+
+UP_FC = [{"horizon": 1, "vpd": 1.62, "band_status": "above", "reference": False}]
+
+
+def sent_input(monkeypatch, f) -> str:
+    fake = use_fake(monkeypatch, output_text="방안입니다.")
+    answer_question("뭐 해야 해?", f)
+    return fake.calls[0]["input"]
+
+
+def lines_of(sent: str) -> dict[str, str]:
+    return dict(x.split(": ", 1) for x in sent.splitlines() if x.startswith(("지금 필요한 방향", "지금 권할 수 있는 설비",
+                                                                          "방향이 맞지 않아 권하지 않는 설비", "등록된 설비")))
+
+
+def test_answer_input_says_lower_when_forecast_leaves_upward(monkeypatch):
+    sent = sent_input(monkeypatch, fact(status="in", vpd=1.35, equipment=("vent", "exhaust_fan", "heater"),
+                                        forecasts=UP_FC))
+    got = lines_of(sent)
+    assert got["지금 필요한 방향"].startswith("VPD를 내리는 쪽")
+    assert got["지금 권할 수 있는 설비"] == "천창·측창"
+    assert got["방향이 맞지 않아 권하지 않는 설비"] == "환기팬, 난방"
+    assert "등록된 설비" not in got  # 전체 목록을 주면 답이 그대로 나열했다
+
+
+def test_answer_input_says_raise_when_below(monkeypatch):
+    sent = sent_input(monkeypatch, fact(status="below", equipment=("vent", "heater", "humidifier"),
+                                        forecasts=MODEL_FC))
+    got = lines_of(sent)
+    assert got["지금 필요한 방향"].startswith("VPD를 올리는 쪽")
+    assert got["지금 권할 수 있는 설비"] == "천창·측창, 난방"
+    assert got["방향이 맞지 않아 권하지 않는 설비"] == "가습"
+
+
+def test_answer_input_says_watch_when_in_band_and_staying(monkeypatch):
+    stay = [{"horizon": 1, "vpd": 1.2, "band_status": "in", "reference": False}]
+    got = lines_of(sent_input(monkeypatch, fact(status="in", vpd=1.1, forecasts=stay)))
+    assert "지켜보기" in got["지금 필요한 방향"]
+    assert "지금 권할 수 있는 설비" not in got and got["등록된 설비"].startswith("제습기, 난방, 천창·측창")
+
+
+# ---------------------------------------------------------------- 미등록 설비 질문
+
+def test_question_about_unregistered_equipment_answered_without_llm(monkeypatch):
+    fake = use_fake(monkeypatch, output_text="방안입니다.")
+    body = answer_question("차광막 쳐야 해?", fact(equipment=("vent", "heater"), forecasts=MODEL_FC))
+    assert not fake.calls
+    assert body["source"] == "rule" and body["note"] == advisor.UNREGISTERED_NOTE
+    assert "차광막" in body["answer"] and "온실 설정" in body["answer"]
+
+
+def test_unregistered_shortcut_also_without_llm_or_model():
+    body = answer_question("가습기 틀어도 돼?", fact(equipment=("heater",)))  # persistence, LLM 꺼짐
+    assert body["note"] == advisor.UNREGISTERED_NOTE and "가습" in body["answer"]
+
+
+def test_generic_vent_question_needs_some_vent_equipment(monkeypatch):
+    fake = use_fake(monkeypatch, output_text="방안입니다.")
+    assert answer_question("환기해도 돼?", fact(equipment=("heater",), forecasts=MODEL_FC))["note"] \
+        == advisor.UNREGISTERED_NOTE
+    assert answer_question("환기팬 켤까?", fact(equipment=("vent",), forecasts=MODEL_FC))["note"] \
+        == advisor.UNREGISTERED_NOTE
+    assert not fake.calls
+    answer_question("환기해도 돼?", fact(equipment=("vent",), forecasts=MODEL_FC))
+    assert len(fake.calls) == 1  # 천창·측창이 있으면 Gemini에 묻는다
+
+
+def test_question_mixing_registered_equipment_goes_to_llm(monkeypatch):
+    fake = use_fake(monkeypatch, output_text="난방을 검토하는 방안입니다.")
+    body = answer_question("차광막 대신 난방은?", fact(equipment=("heater",), forecasts=MODEL_FC))
+    assert len(fake.calls) == 1 and body["source"] == "llm"
+
+
+# ---------------------------------------------------------------- 가드레일 실패 시 재질문
+
+def test_answer_passing_first_time_asks_once(monkeypatch):
+    fake = use_fake(monkeypatch, output_text="난방을 검토하는 방안입니다.")
+    answer_question("어떻게 해?", fact(forecasts=MODEL_FC))
+    assert len(fake.calls) == 1
+
+
+def test_answer_retried_once_with_violation_feedback(monkeypatch):
+    fake = use_fake(monkeypatch, output_text=["습도를 60%로 낮추세요.", "제습기를 검토하는 방안입니다."])
+    body = answer_question("어떻게 해?", fact(forecasts=MODEL_FC))
+    assert body["source"] == "llm" and body["answer"] == "제습기를 검토하는 방안입니다."
+    assert len(fake.calls) == 2
+    retry = fake.calls[1]["input"]
+    assert "어떻게 해?" in retry and "60" in retry and "사실 시트에 없는 숫자" in retry
+
+
+def test_answer_failing_twice_falls_back_with_last_violations(monkeypatch):
+    fake = use_fake(monkeypatch, output_text=["습도를 60%로 낮추세요.", "자동으로 맞춥니다."])
+    body = answer_question("어떻게 해?", fact(forecasts=MODEL_FC))
+    assert len(fake.calls) == 2  # 재질문은 한 번만
+    assert body["source"] == "rule" and body["violations"] == ["금지 표현: 자동으로"]
+
+
+def test_retry_call_failing_falls_back(monkeypatch):
+    use_fake(monkeypatch, output_text=["습도를 60%로 낮추세요.", ""], error=[None, httpx.ReadTimeout("t")])
+    body = answer_question("어떻게 해?", fact(forecasts=MODEL_FC))
+    assert body["source"] == "rule" and "가드레일" in body["note"]
 
 
 def test_answer_failing_guardrail_falls_back(monkeypatch):
