@@ -52,6 +52,17 @@ def test_garbled_text_blocked():
     assert check_text("천창·측창 열기 검토 → 지켜보기", f).passed
 
 
+def test_internal_terms_blocked():
+    # Gemini 실제 답변 (2026-11-01): 사용자에게 내부 용어·설비 코드가 그대로 보였다
+    f = fact()
+    for text in ("환기에 대한 내용은 사실 시트에 없습니다.", "천창·측창(vent)을 참고하세요",
+                 "band_status가 below입니다", "JSON에 따르면"):
+        res = check_text(text, f)
+        assert not res.passed and any("내부 용어" in v for v in res.violations), text
+    assert check_text("천창·측창 열기 검토", f).passed
+    assert check_text("제습기 가동 검토", f).passed  # 'dehumidifier' 같은 코드가 아니라 한글 이름
+
+
 def test_candidate_equipment_field_checked():
     f = fact(equipment=["heater"])
     res = check_candidates([{"equipment": "humidifier", "title": "검토", "reason": "방안"}], f)

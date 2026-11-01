@@ -116,6 +116,16 @@ def test_answer_from_gemini(monkeypatch):
     assert "response_format" not in fake.calls[0]
 
 
+def test_answer_input_names_registered_equipment_in_korean(monkeypatch):
+    # 실제 답변이 "사실 시트"를 그대로 쓰고, 등록 안 된 환기팬·차광막을 꺼내 막혔다 (2026-11-01)
+    fake = use_fake(monkeypatch, output_text="방안입니다.")
+    answer_question("환기해도 돼?", fact(equipment=("vent", "heater"), forecasts=MODEL_FC))
+    sent = fake.calls[0]["input"]
+    assert "사실 시트" not in sent
+    assert "등록된 설비: 천창·측창, 난방" in sent
+    assert "환기팬" not in sent and "차광막" not in sent
+
+
 def test_answer_failing_guardrail_falls_back(monkeypatch):
     use_fake(monkeypatch, output_text="습도를 60%로 반드시 낮추세요.")
     body = answer_question("어떻게 해?", fact(forecasts=MODEL_FC))

@@ -29,6 +29,8 @@ EQUIPMENT_KEYWORDS = {
     "dehumidifier": ["제습"],
     "heater": ["난방", "보일러", "히터"],
 }
+EQUIPMENT_KO = {"vent": "천창·측창", "exhaust_fan": "환기팬", "shade_screen": "차광막",
+                "humidifier": "가습", "dehumidifier": "제습기", "heater": "난방"}
 # "환기"만 쓰면 천창·측창 또는 환기팬 중 하나라도 있어야 한다
 GENERIC_VENT = "환기"
 
@@ -38,6 +40,11 @@ BANNED_PHRASES = ["자동으로", "자동 제어", "정확히", "정확하게", 
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
 # 한자·가나·낱자 자모(ㅇㅈㅈ). 작은 모델이 가끔 이런 깨진 글자를 섞어 낸다 (2026-11-01 실측)
 GARBLED = re.compile(r"[\u3131-\u318e\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+# \uc0ac\uc6a9\uc790\uc5d0\uac8c \ubcf4\uc774\uba74 \uc548 \ub418\ub294 \ub0b4\ubd80 \uc6a9\uc5b4: \uc0ac\uc2e4 \uc2dc\ud2b8\u00b7JSON \ud544\ub4dc\uba85\u00b7\uc124\ube44 \ucf54\ub4dc (Gemini \uc2e4\uc81c \ub2f5\ubcc0\uc5d0\uc11c \ub098\uc634)
+INTERNAL_FIELDS = ["band_status", "forecasts", "run_hours", "observed_at", "greenhouse", "equipment"]
+INTERNAL_TERM = re.compile(
+    r"\uc0ac\uc2e4 ?\uc2dc\ud2b8|JSON|(?<![A-Za-z_])(?:" + "|".join(INTERNAL_FIELDS + list(EQUIPMENT_KEYWORDS)) + r")(?![A-Za-z_])"
+)
 
 
 # ---------------------------------------------------------------- 사실 시트
@@ -132,6 +139,8 @@ def check_text(text: str, fact: dict) -> Check:
             violations.append(f"금지 표현: {phrase}")
     if GARBLED.search(text):
         violations.insert(0, "깨진 글자")
+    if m := INTERNAL_TERM.search(text):
+        violations.append(f"내부 용어: {m.group()}")
     return Check(not violations, violations)
 
 
@@ -231,6 +240,8 @@ CONTRACT = """\
 - VPD가 대역을 벗어나는 시각이나 시점을 예측하거나 단정하지 않는다.
 - 다음 표현은 쓰지 않는다: 자동으로, 자동 제어, 정확히, 정확하게, 예고, 반드시, 보장.
 - 너는 설비를 제어하지 않는다. 사람이 판단할 "방안"으로만 말한다.
+- 읽는 사람은 농가다. "사실 시트", JSON, 필드명, 영문 설비 코드는 쓰지 않는다. 설비는 위의 한글
+  이름으로, 근거는 "지금 측정값"처럼 말한다.
 - 한국어로, 짧고 쉽게 쓴다."""
 
 CANDIDATES_PROMPT = CONTRACT + """
@@ -238,7 +249,13 @@ CANDIDATES_PROMPT = CONTRACT + """
 설비가 필요 없는 후보(지켜보기 등)면 null. title은 20자 안팎, reason은 한두 문장."""
 
 ANSWER_PROMPT = CONTRACT + """
-사용자 질문에 사실 시트만 근거로 2~4문장으로 답한다. 사실 시트로 답할 수 없는 질문이면 그렇다고 말한다."""
+사용자 질문에 사실 시트만 근거로 2~4문장으로 답한다.
+- 등록된 설비에 대한 질문이면, 지금 대역 상태에서 그 설비가 VPD를 어느 쪽으로 움직이는지 말하고
+  검토할 방안으로 답한다. 예: 대역 아래(과습)에서 천창·측창은 바깥 공기가 더 건조할 때 습한 공기를
+  내보내 VPD를 올리는 방안이다. 판단에 바깥 날씨처럼 측정값에 없는 정보가 필요하면 그걸 확인해
+  보라고 말한다.
+- 등록되지 않은 설비를 물으면 그 이름을 다시 쓰지 말고, 등록된 설비 안에서만 안내한다고 말한다.
+- 측정값으로 답할 수 없는 질문이면 지금 측정값으로는 판단하기 어렵다고 말한다."""
 
 
 class LLMCandidate(BaseModel):
@@ -307,7 +324,11 @@ def answer_with_llm(question: str, fact: dict) -> str | None:
     client = llm_client()
     if client is None:
         return None
-    user = f"사실 시트:\n{json.dumps(fact, ensure_ascii=False)}\n\n질문: {question}"
+    # 작은 모델은 시스템 프롬프트보다 이 메시지를 더 따른다: 등록 설비를 한글로 못박고,
+    # "사실 시트"라는 말은 넣지 않는다 (답변에 그대로 따라 나왔다)
+    names = ", ".join(EQUIPMENT_KO[e] for e in fact["greenhouse"]["equipment"]) or "없음"
+    user = (f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n"
+            f"이 온실에 등록된 설비: {names}. 이 밖의 설비는 이름도 쓰지 않는다.\n\n질문: {question}")
     return _ask_gemini(client, ANSWER_PROMPT, user).strip()
 
 
