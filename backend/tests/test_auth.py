@@ -104,8 +104,30 @@ def test_public_greenhouse_readable_and_askable_but_not_changeable(client, engin
     assert anon.patch(f"/greenhouses/{gh['id']}", json={"name": "x"}).status_code == 401
     assert other.patch(f"/greenhouses/{gh['id']}", json={"name": "x"}).status_code == 403
     assert other.post(f"/greenhouses/{gh['id']}/ingest-token").status_code == 403
-    decision = {"candidate_index": 0, "decision": "done"}
-    assert other.post(f"/greenhouses/{gh['id']}/advisor/{advice_id}/decisions", json=decision).status_code == 403
+
+
+def test_public_greenhouse_actions_split_by_person(client, engine):  # noqa: F811
+    # 공개 데모에서도 조치 기록을 체험할 수 있다 — 질문하기처럼 사람마다 따로 (결정 2026-11-07)
+    gh = client.post("/greenhouses", json={**GREENHOUSE, "connection_type": "api"}).json()
+    post(client, gh["id"], m("2026-10-01T00:00:00", t=18, rh=95, co2=450))
+    make_public(engine, gh["id"])
+    url = f"/greenhouses/{gh['id']}/advisor"
+    advice_id = client.get(url).json()["advice_id"]
+    anon, other = new_client(), new_client("other@example.com")
+
+    pick = {"kind": "candidate", "candidate_index": 0}
+    assert anon.post(f"{url}/{advice_id}/action", json=pick).status_code == 422  # 방문자 id 필요
+    assert anon.post(f"{url}/{advice_id}/action", json={**pick, "visitor": "browser-1"}).status_code == 200
+    assert other.post(f"{url}/{advice_id}/action", json={"kind": "none", "reason": "soon"}).status_code == 200
+
+    assert anon.get(url, params={"visitor": "browser-1"}).json()["action"]["kind"] == "candidate"
+    assert anon.get(url, params={"visitor": "browser-2"}).json()["action"] is None
+    assert anon.get(url).json()["action"] is None  # 누구인지 모르면 보여주지 않음
+    assert other.get(url).json()["action"]["kind"] == "none"
+    assert client.get(url).json()["action"] is None  # 주인 기록과도 섞이지 않음
+    assert [r["kind"] for r in anon.get(f"{url}/logs", params={"visitor": "browser-1"}).json()] == ["candidate"]
+    assert anon.get(f"{url}/logs").json() == []
+    assert anon.delete(f"{url}/{advice_id}/action").status_code == 422
 
 
 def test_public_greenhouse_conversations_split_by_person(client, engine):  # noqa: F811

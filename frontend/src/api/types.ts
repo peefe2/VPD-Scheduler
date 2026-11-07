@@ -144,11 +144,10 @@ export interface HourlyReading {
 export type BandStatus = 'below' | 'in' | 'above'
 
 export interface TodayForecast {
-  horizon: 1 | 3 | 6
+  horizon: 1 | 3 // +6h는 검증용이라 오늘 화면에 없다 (2026-11-07)
   target_at: string
   state: HorizonState // 백테스트 자동 전환 상태
   source: 'model' | 'persistence' // 실제로 보여주는 값의 출처
-  reference: boolean
   vpd: number
   band_status: BandStatus
   note: string
@@ -173,14 +172,30 @@ export interface TodayResponse {
   forecasts: TodayForecast[]
 }
 
-export type AdviceDecision = 'done' | 'skipped'
-
 export interface AdviceCandidate {
   index: number
   equipment: Equipment | null
   title: string
   reason: string
-  decision: AdviceDecision | null
+}
+
+/** 이번 정시에 한 조치 하나 (2026-11-07). candidate = 후보 중 하나, other = 후보에 없는 등록 설비, none = 조치 안 함 */
+export type ActionKind = 'candidate' | 'other' | 'none'
+export type SkipReason = 'weather' | 'unavailable' | 'soon' | 'other'
+
+export interface AdviceActionInput {
+  kind: ActionKind
+  candidate_index?: number
+  equipment?: Equipment
+  reason?: SkipReason
+}
+
+export interface AdviceAction {
+  kind: ActionKind
+  candidate_index: number | null
+  equipment: Equipment | null
+  reason: SkipReason | null
+  decided_at: string
 }
 
 export interface FactSheet {
@@ -194,7 +209,7 @@ export interface FactSheet {
     band_status: BandStatus
     run_hours: number
   }
-  forecasts: { horizon: 1 | 3 | 6; vpd: number; band_status: BandStatus; reference: boolean }[]
+  forecasts: { horizon: 1 | 3; vpd: number; band_status: BandStatus }[]
   mode: 'model' | 'persistence'
 }
 
@@ -209,16 +224,15 @@ export type AdviceResponse =
       summary: string
       fact_sheet: FactSheet
       candidates: AdviceCandidate[]
-      guardrail: { passed: boolean; violations: string[]; fallback_reason: string }
+      action: AdviceAction | null // 보는 사람이 이 정시에 남긴 조치
+      // blocked = 가드레일에 막힌 AI 후보의 원래 위반 이유 (규칙 안내로 대체됐을 때)
+      guardrail: { passed: boolean; violations: string[]; fallback_reason: string; blocked: string[] }
     }
 
-export interface AdviceLog {
+export interface AdviceLog extends AdviceAction {
   advice_id: number
   observed_at: string
   title: string
-  equipment: Equipment | null
-  decision: AdviceDecision
-  decided_at: string
   source: 'rule' | 'llm'
   vpd_at: number
   status_at: BandStatus

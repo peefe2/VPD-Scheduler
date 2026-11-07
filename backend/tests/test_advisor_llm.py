@@ -58,7 +58,10 @@ def test_candidates_from_gemini_used(monkeypatch):
     (call,) = fake.calls
     assert call["model"] == advisor.DEFAULT_MODEL
     assert "사실 시트" in call["system_instruction"]
-    assert json.loads(call["input"])["current"]["vpd"] == 0.32  # 사실 시트만 넘긴다
+    sent = call["input"]
+    assert json.loads(sent.splitlines()[1])["current"]["vpd"] == 0.32  # 사실 시트 값
+    # 후보 입력에도 필요한 방향을 함께 보낸다 (자유 질문과 같은 입력)
+    assert "지금 필요한 방향: VPD를 올리는 쪽." in sent and "사실 시트" not in sent
     assert call["response_format"]["mime_type"] == "application/json"
 
 
@@ -107,6 +110,8 @@ def test_gemini_output_failing_guardrail_falls_back(monkeypatch):
     use_fake(monkeypatch, output_text=json.dumps(bad, ensure_ascii=False))
     adv = make_advice(fact(forecasts=MODEL_FC))
     assert adv.source == "rule" and "가드레일" in adv.fallback_reason
+    # 막힌 LLM 후보의 원래 위반 이유를 남긴다 (check는 대체된 규칙 후보의 결과)
+    assert "금지 표현: 자동으로" in adv.blocked and adv.check.passed
 
 
 # ---------------------------------------------------------------- 자유 질문
@@ -132,7 +137,7 @@ def test_answer_input_names_registered_equipment_in_korean(monkeypatch):
 # ---------------------------------------------------------------- 필요한 방향 알려주기
 # 평가(2026-11-01)에서 곧 대역 위로 갈 때 "난방"을 권했다 — 난방은 VPD를 더 올린다
 
-UP_FC = [{"horizon": 1, "vpd": 1.62, "band_status": "above", "reference": False}]
+UP_FC = [{"horizon": 1, "vpd": 1.62, "band_status": "above"}]
 
 
 def sent_input(monkeypatch, f) -> str:
@@ -166,7 +171,7 @@ def test_answer_input_says_raise_when_below(monkeypatch):
 
 
 def test_answer_input_says_watch_when_in_band_and_staying(monkeypatch):
-    stay = [{"horizon": 1, "vpd": 1.2, "band_status": "in", "reference": False}]
+    stay = [{"horizon": 1, "vpd": 1.2, "band_status": "in"}]
     got = lines_of(sent_input(monkeypatch, fact(status="in", vpd=1.1, forecasts=stay)))
     assert "지켜보기" in got["지금 필요한 방향"]
     assert "지금 권할 수 있는 설비" not in got and got["등록된 설비"].startswith("제습기, 난방, 천창·측창")
@@ -266,13 +271,13 @@ def test_answer_api_error_falls_back(monkeypatch):
 
 # ---------------------------------------------------------------- 호출 횟수 · 기록
 
-def counting_make_advice(monkeypatch, fallback_reason=""):
+def counting_make_advice(monkeypatch, fallback_reason="", blocked=()):
     calls = []
 
     def fake(f):
         calls.append(f)
         rules = advisor.rule_candidates(f)
-        return Advice(advisor.situation(f), rules, "rule", Check(True), fallback_reason)
+        return Advice(advisor.situation(f), rules, "rule", Check(True), fallback_reason, list(blocked))
 
     monkeypatch.setattr(advisor_router, "make_advice", fake)
     return calls
@@ -293,7 +298,7 @@ def test_advice_not_regenerated_within_same_hour(client, monkeypatch):  # noqa: 
     assert len(calls) == 2
 
     # 선택한 뒤에는 기록을 고정한다
-    client.post(f"{url}/{first['advice_id']}/decisions", json={"candidate_index": 0, "decision": "done"})
+    client.post(f"{url}/{first['advice_id']}/action", json={"kind": "candidate", "candidate_index": 0})
     client.patch(f"/greenhouses/{gh['id']}", json={"equipment": ["heater", "vent"]})
     client.get(url)
     assert len(calls) == 2
@@ -306,6 +311,15 @@ def test_fallback_reason_survives_reload(client, monkeypatch):  # noqa: F811
     url = f"/greenhouses/{gh['id']}/advisor"
     client.get(url)
     assert "AI 응답을 받지 못해" in client.get(url).json()["guardrail"]["fallback_reason"]
+
+
+def test_blocked_reason_saved_with_record(client, monkeypatch):  # noqa: F811
+    counting_make_advice(monkeypatch, fallback_reason=advisor.GUARDRAIL_FAILED, blocked=["금지 표현: 자동으로"])
+    gh = client.post("/greenhouses", json=API_GH).json()
+    post(client, gh["id"], m("2026-10-01T00:00:00", t=18, rh=95, co2=450))
+    url = f"/greenhouses/{gh['id']}/advisor"
+    client.get(url)
+    assert client.get(url).json()["guardrail"]["blocked"] == ["금지 표현: 자동으로"]
 
 
 # ---------------------------------------------------------------- 기존 DB

@@ -3,28 +3,31 @@
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-l);
-  padding: 20px 22px;
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
   min-width: 0;
 }
 
 .cardHead {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .cardTitle {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1.4;
+  letter-spacing: -0.015em;
 }
 
 .cardSub {
   font-size: 13px;
   color: var(--ink-3);
-  margin-top: 2px;
+  margin-top: 3px;
+  line-height: 1.5;
 }
 
 /* ---------- Badge ---------- */
@@ -33,10 +36,11 @@
   align-items: center;
   gap: 6px;
   height: 24px;
-  padding: 0 10px;
+  padding: 0 9px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
@@ -84,11 +88,18 @@
   border: 1px solid transparent;
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   text-decoration: none;
   cursor: pointer;
   transition:
     background 0.15s,
-    border-color 0.15s;
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.05s;
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .button:disabled {
@@ -99,9 +110,11 @@
 .button[data-variant='primary'] {
   background: var(--brand);
   color: #fff;
+  box-shadow: 0 1px 2px rgb(13 97 72 / 25%), inset 0 1px 0 rgb(255 255 255 / 12%);
 }
 .button[data-variant='primary']:hover:not(:disabled) {
-  background: #154c3b;
+  background: #0a523c;
+  box-shadow: 0 4px 14px rgb(13 97 72 / 28%);
 }
 .button[data-variant='secondary'] {
   background: var(--surface);
@@ -142,6 +155,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-2);
+  letter-spacing: -0.01em;
 }
 
 .hint {
@@ -152,18 +166,32 @@
 
 .input,
 .select {
-  height: 42px;
+  height: 46px;
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-s);
   background: var(--surface-strong);
-  padding: 0 12px;
-  font-size: 14px;
+  padding: 0 14px;
+  font-size: 15px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.input::placeholder {
+  color: var(--ink-4);
 }
 
 .input:hover,
 .select:hover {
-  border-color: var(--line-strong);
+  border-color: var(--ink-4);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--brand-2);
+  box-shadow: 0 0 0 4px rgb(19 138 99 / 14%);
 }
 
 .input[aria-invalid='true'] {
@@ -177,20 +205,20 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .pageTitle {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
 }
 
 .pageSub {
   font-size: 14px;
   color: var(--ink-3);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 /* ---------- Stat ---------- */
@@ -203,17 +231,17 @@
 }
 
 .statLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-3);
 }
 
 .statValue {
   font-family: var(--mono);
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 30px;
+  font-weight: 800;
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -229,21 +257,24 @@
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  border-radius: var(--radius-m);
-  padding: 12px 14px;
+  border-radius: var(--radius-s);
+  padding: 10px 14px;
   font-size: 13px;
   line-height: 1.6;
   background: var(--surface-muted);
   color: var(--ink-2);
+  border: 1px solid transparent;
 }
 
 .notice[data-tone='warn'] {
-  background: var(--above-soft);
+  background: #fdf3ec;
+  border-color: var(--above-soft);
   color: var(--warn);
 }
 .notice[data-tone='info'] {
-  background: var(--below-soft);
-  color: #24507f;
+  background: #f2f6fc;
+  border-color: var(--below-soft);
+  color: #234e80;
 }
 .notice[data-tone='brand'] {
   background: var(--brand-tint);

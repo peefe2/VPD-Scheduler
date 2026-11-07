@@ -2,9 +2,10 @@ import type { HourlyReading } from '../../api/types'
 import { HOUR_MS, RECENT_HOURS as HOURS, localMs as ms, recentStart } from '../../lib/format'
 import s from '../calendar/calendar.module.css'
 
-const W = 320
-const H = 168
-const PAD = { l: 30, r: 8, t: 10, b: 22 }
+// 카드 너비(약 640px)에 맞춘 좌표계. 작게 잡으면 늘어나면서 축 글자가 두 배로 커진다
+const W = 640
+const H = 240
+const PAD = { l: 34, r: 10, t: 12, b: 26 }
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
 // 마지막 정시까지 최근 24시간 VPD. 자정을 넘어도 이어서 그린다.
@@ -78,7 +79,7 @@ export function RecentChart({
       </text>
       <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} stroke="var(--line-strong)" />
       {[0, 6, 12, 18, 23].map((i) => (
-        <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className={s.chartAxis}>
+        <text key={i} x={x(i)} y={H - 7} textAnchor="middle" className={s.chartAxis}>
           {pad2(hourOf(i))}
         </text>
       ))}
@@ -88,12 +89,12 @@ export function RecentChart({
           points={seg.map((p) => `${x(p.i)},${y(p.v)}`).join(' ')}
           fill="none"
           stroke="var(--ink-2)"
-          strokeWidth={1.6}
+          strokeWidth={2}
           strokeLinejoin="round"
         />
       ))}
       {points.map((p) => (
-        <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r={3} fill={color(p.v)} stroke="#fff" strokeWidth={1}>
+        <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r={4} fill={color(p.v)} stroke="#fff" strokeWidth={1.5}>
           <title>
             {pad2(hourOf(p.i))}시 · {p.v.toFixed(2)} kPa
           </title>

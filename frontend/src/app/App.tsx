@@ -4,6 +4,7 @@ import { ErrorState, Loading } from '../components/ui'
 import { AuthPage } from '../features/auth/AuthPage'
 import { CalendarPage } from '../features/calendar/CalendarPage'
 import { DataStep } from '../features/onboarding/DataStep'
+import { IntroPage } from '../features/intro/IntroPage'
 import { GreenhouseStep } from '../features/onboarding/GreenhouseStep'
 import { ReviewStep } from '../features/onboarding/ReviewStep'
 import { SettingsPage } from '../features/settings/SettingsPage'
@@ -12,15 +13,16 @@ import { AdvisorPage } from '../features/advisor/AdvisorPage'
 import { TrustPage } from '../features/trust/TrustPage'
 import { Layout } from './Layout'
 
-// 내 온실이 있으면 그 첫 온실, 없으면 공개(데모) 온실, 그것도 없으면 온실 등록(로그인 전이면 로그인)
-function RootRedirect() {
+// 로그인 전이면 서비스 소개. 로그인했으면 내 첫 온실, 없으면 공개(데모) 온실, 그것도 없으면 온실 등록
+function Home() {
   const { data, isLoading, error } = useGreenhouses()
   const me = useMe()
   if (isLoading || me.isLoading) return <Loading />
   if (error) return <ErrorState error={error} />
+  if (!me.data) return <IntroPage />
   const first = data?.find((g) => !g.public) ?? data?.[0]
   if (first) return <Navigate to={`/g/${first.id}/calendar`} replace />
-  return <Navigate to={me.data ? '/onboarding' : '/login'} replace />
+  return <Navigate to="/onboarding" replace />
 }
 
 // 온실 등록은 로그인해야 한다
@@ -42,10 +44,12 @@ function WithGreenhouse({ render }: { render: (id: number) => React.ReactNode })
 export function App() {
   return (
     <Routes>
+      {/* 소개·로그인은 사이드바 없이 한 장으로 */}
+      <Route index element={<Home />} />
+      <Route path="about" element={<IntroPage />} />
+      <Route path="login" element={<AuthPage mode="login" />} />
+      <Route path="signup" element={<AuthPage mode="signup" />} />
       <Route element={<Layout />}>
-        <Route index element={<RootRedirect />} />
-        <Route path="login" element={<AuthPage mode="login" />} />
-        <Route path="signup" element={<AuthPage mode="signup" />} />
         <Route
           path="onboarding"
           element={

@@ -11,6 +11,7 @@
 import hashlib
 import hmac
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -90,6 +91,11 @@ def can_write(gh: Greenhouse, user: User | None) -> bool:
     return user is not None and gh.owner_id == user.id
 
 
+# 볼 수 있는 온실(공개 데모 포함)이면 누구나 하는 쓰기: 질문하기와 조치 기록. 둘 다 사람마다 따로
+# 저장된다(routers/advisor._chat_key) — 온실 자체를 바꾸지 않는다
+VISITOR_WRITE = re.compile(r".*/greenhouses/\d+/advisor/(?:ask|\d+/action)")
+
+
 def greenhouse_access(request: Request, greenhouse_id: int, session: Session = Depends(get_session),
                       user: User | None = Depends(optional_user)) -> None:
     """/greenhouses/{greenhouse_id}/... 라우트 공통 검사 (라우터 dependencies로 건다)."""
@@ -99,7 +105,7 @@ def greenhouse_access(request: Request, greenhouse_id: int, session: Session = D
     gh = session.get(Greenhouse, greenhouse_id)
     if gh is None or not can_read(gh, user):
         raise HTTPException(404, "greenhouse not found")
-    changing = request.method not in ("GET", "HEAD") and not path.endswith("/advisor/ask")
+    changing = request.method not in ("GET", "HEAD") and not VISITOR_WRITE.fullmatch(path)
     if changing and not can_write(gh, user):
         raise HTTPException(401 if user is None else 403,
                             "로그인이 필요합니다." if user is None else "이 온실을 바꿀 권한이 없습니다.")

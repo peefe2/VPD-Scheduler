@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from './client'
-import type { AdviceDecision, AdviceQuestion, ColumnMapping, GreenhouseInput } from './types'
+import { visitorId } from '../lib/visitor'
+import type { AdviceActionInput, AdviceQuestion, ColumnMapping, GreenhouseInput } from './types'
 
 export const keys = {
   greenhouses: ['greenhouses'] as const,
   greenhouse: (id: number) => ['greenhouses', id] as const,
   backtest: (id: number) => ['greenhouses', id, 'backtest'] as const,
   today: (id: number) => ['greenhouses', id, 'today'] as const,
-  advice: (id: number) => ['greenhouses', id, 'advice'] as const,
-  adviceLogs: (id: number) => ['greenhouses', id, 'advice-logs'] as const,
+  advice: (id: number, visitor?: string) => ['greenhouses', id, 'advice', visitor ?? ''] as const,
+  adviceLogs: (id: number, visitor?: string) => ['greenhouses', id, 'advice-logs', visitor ?? ''] as const,
   questions: (id: number, visitor?: string) => ['greenhouses', id, 'questions', visitor ?? ''] as const,
   calendar: (id: number, start?: string, end?: string) =>
     ['greenhouses', id, 'calendar', start ?? '', end ?? ''] as const,
@@ -33,20 +34,34 @@ export const useToday = (id: number, enabled = true) =>
   useQuery({ queryKey: keys.today(id), queryFn: () => api.today(id), enabled, refetchInterval: 60_000 })
 
 // 오늘 화면과 같은 주기로 다시 읽는다 (정시가 바뀌면 새 추천)
-export const useAdvice = (id: number, enabled = true) =>
-  useQuery({ queryKey: keys.advice(id), queryFn: () => api.advice(id), enabled, refetchInterval: 60_000 })
+export const useAdvice = (id: number, enabled = true, visitor?: string) =>
+  useQuery({
+    queryKey: keys.advice(id, visitor),
+    queryFn: () => api.advice(id, visitor),
+    enabled,
+    refetchInterval: 60_000,
+  })
 
-export const useAdviceLogs = (id: number, enabled = true) =>
-  useQuery({ queryKey: keys.adviceLogs(id), queryFn: () => api.adviceLogs(id), enabled })
+export const useAdviceLogs = (id: number, visitor?: string) =>
+  useQuery({ queryKey: keys.adviceLogs(id, visitor), queryFn: () => api.adviceLogs(id, visitor) })
 
-export function useDecide(id: number) {
+// 로그인 안 했으면(공개 데모 온실) 브라우저별 방문자 id로 대화·조치 기록을 나눈다. 로그인했으면 서버가 계정으로 나눈다.
+export function useVisitor() {
+  const { data: me, isLoading } = useMe()
+  return { visitor: me === null ? visitorId() : undefined, ready: !isLoading }
+}
+
+// 이번 정시에 한 조치 기록. input이 null이면 기록 취소
+export function useRecordAction(id: number, visitor?: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { adviceId: number; index: number; decision: AdviceDecision | null }) =>
-      api.decide(id, v.adviceId, v.index, v.decision),
+    mutationFn: async (v: { adviceId: number; input: AdviceActionInput | null }) => {
+      if (v.input) await api.recordAction(id, v.adviceId, v.input, visitor)
+      else await api.clearAction(id, v.adviceId, visitor)
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.advice(id) })
-      qc.invalidateQueries({ queryKey: keys.adviceLogs(id) })
+      qc.invalidateQueries({ queryKey: ['greenhouses', id, 'advice'] })
+      qc.invalidateQueries({ queryKey: ['greenhouses', id, 'advice-logs'] })
     },
   })
 }

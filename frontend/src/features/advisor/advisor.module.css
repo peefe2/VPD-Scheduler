@@ -38,13 +38,9 @@
   padding: 16px 18px;
 }
 
-.cand[data-decision='done'] {
+.cand[data-chosen] {
   border-color: var(--brand-2);
   background: var(--brand-tint);
-}
-
-.cand[data-decision='skipped'] {
-  background: var(--surface);
 }
 
 .num {
@@ -79,37 +75,142 @@
   margin-top: 6px;
 }
 
-.choices {
+/* 이번 정시에 한 조치 */
+.actionForm {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.choice {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: var(--radius-s);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font-size: 13.5px;
+.actionSet {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.actionLegend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 15px;
   font-weight: 600;
+}
+
+.actionOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--surface-strong);
+  font-size: 14px;
   cursor: pointer;
 }
 
-.choice:hover:not(:disabled) {
-  border-color: var(--line-strong);
+.actionOption:has(input:checked) {
+  border-color: var(--brand-2);
+  background: var(--brand-tint);
 }
 
-.choice[aria-pressed='true'][data-kind='done'] {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
+.actionOption input {
+  margin: 3px 0 0;
+  accent-color: var(--brand-2);
 }
 
-.choice[aria-pressed='true'][data-kind='skipped'] {
-  background: var(--ink-2);
+.actionNum {
+  font-family: var(--mono);
+  color: var(--ink-3);
+}
+
+.actionSub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0 4px 34px;
+}
+
+.actionSub select {
+  max-width: 260px;
+}
+
+.tag {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tag[aria-pressed='true'] {
   border-color: var(--ink-2);
+  background: var(--ink-2);
   color: #fff;
+}
+
+.actionFoot {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 조치 기록: 그 정시 → 2시간 뒤 */
+.logs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand-2);
+  border-radius: var(--radius-s);
+  background: var(--surface-strong);
+}
+
+.log[data-kind='none'] {
+  border-left-color: var(--line-strong);
+}
+
+.logHead {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.logTitle {
+  font-weight: 600;
+}
+
+.logVpd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.arrow {
+  color: var(--ink-3);
 }
 
 .facts {

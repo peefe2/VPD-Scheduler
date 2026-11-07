@@ -48,7 +48,6 @@ def test_readonly_blocks_changes_but_allows_reading(client, monkeypatch):  # noq
         client.delete(f"/greenhouses/{gh_id}"),
         client.post(f"/greenhouses/{gh_id}/ingest-token"),
         client.post(f"/greenhouses/{gh_id}/ingest", json={"measurements": [m("2026-10-01T01:00:00")]}),
-        client.post(f"{url}/{advice_id}/decisions", json={"candidate_index": 0, "decision": "done"}),
     ]
     assert [r.status_code for r in blocked] == [403] * len(blocked)
     assert "읽기 전용" in blocked[0].json()["detail"]
@@ -57,6 +56,9 @@ def test_readonly_blocks_changes_but_allows_reading(client, monkeypatch):  # noq
     assert client.get(url).status_code == 200
     asked = client.post(f"{url}/ask", json={"question": "지금 뭐 해야 해?", "visitor": "v1"})
     assert asked.status_code == 200
+    # 조치 기록도 체험할 수 있다 (사람마다 따로 저장되어 온실을 바꾸지 않음)
+    acted = client.post(f"{url}/{advice_id}/action", json={"kind": "none", "reason": "other", "visitor": "v1"})
+    assert acted.status_code == 200
 
 
 def test_readonly_keeps_each_visitor_conversation_apart(client, engine, monkeypatch):  # noqa: F811

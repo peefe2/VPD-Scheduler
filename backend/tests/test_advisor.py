@@ -14,7 +14,7 @@ def fact(status="below", vpd=0.32, run=5, equipment=("dehumidifier", "heater", "
         "current": {"vpd": vpd, "temperature": 18.2, "humidity": 91.5, "co2": 450,
                     "band_status": status, "run_hours": run},
         "forecasts": fc,
-        "mode": mode or ("model" if any(not f["reference"] for f in fc) else "persistence"),
+        "mode": mode or ("model" if fc else "persistence"),
     }
 
 
@@ -90,7 +90,7 @@ def test_no_matching_equipment_points_to_settings():
 
 
 def test_in_band_mentions_model_forecast_only_when_leaving():
-    leaving = [{"horizon": 3, "vpd": 0.41, "band_status": "below", "reference": False}]
+    leaving = [{"horizon": 3, "vpd": 0.41, "band_status": "below"}]
     cands = rule_candidates(fact("in", vpd=0.8, forecasts=leaving))
     assert cands[0]["title"] == "+3h 예측값 확인"
     assert "맞히지 못할 수 있" in cands[0]["reason"]
@@ -106,7 +106,7 @@ def test_rule_candidates_always_pass_guardrail(status, vpd):
 
 # ---------------------------------------------------------------- LLM 자리
 
-MODEL_FC = [{"horizon": 1, "vpd": 0.35, "band_status": "below", "reference": False}]
+MODEL_FC = [{"horizon": 1, "vpd": 0.35, "band_status": "below"}]
 
 
 def test_llm_output_failing_guardrail_falls_back(monkeypatch):
@@ -143,7 +143,7 @@ def test_advisor_unavailable_for_csv_and_empty(client):  # noqa: F811
     assert client.post(f"/greenhouses/{csv_gh['id']}/advisor/ask", json={"question": "어때?"}).status_code == 409
 
 
-def test_advice_saved_per_hour_and_decisions_logged(client):  # noqa: F811
+def test_advice_saved_per_hour_and_action_logged(client):  # noqa: F811
     gh = client.post("/greenhouses", json=API_GH).json()
     # 습도 95%: 대역 아래(과습)
     post(client, gh["id"], *[m(f"2026-10-01T{h:02d}:00:00", t=18, rh=95, co2=450) for h in range(4)])
@@ -154,15 +154,19 @@ def test_advice_saved_per_hour_and_decisions_logged(client):  # noqa: F811
     assert body["fact_sheet"]["forecasts"] == []  # 모델 사용 지평이 없으면 예측을 넣지 않음
     assert "onset" not in str(body["fact_sheet"]) and body["guardrail"]["passed"]
     assert [c["equipment"] for c in body["candidates"]] == ["heater", "vent", None]
+    assert body["action"] is None
     advice_id = body["advice_id"]
 
-    res = client.post(f"{url}/{advice_id}/decisions", json={"candidate_index": 0, "decision": "done"})
-    assert res.json()["decisions"] == {"0": "done"}
-    client.post(f"{url}/{advice_id}/decisions", json={"candidate_index": 2, "decision": "skipped"})
-    assert client.get(url).json()["advice_id"] == advice_id  # 같은 정시면 같은 기록
+    res = client.post(f"{url}/{advice_id}/action", json={"kind": "candidate", "candidate_index": 0})
+    assert res.json()["kind"] == "candidate" and res.json()["equipment"] == "heater"
+    # 다시 보내면 바꾼다 — 정시마다 하나
+    client.post(f"{url}/{advice_id}/action", json={"kind": "other", "equipment": "humidifier"})
+    again = client.get(url).json()
+    assert again["advice_id"] == advice_id  # 같은 정시면 같은 기록
+    assert again["action"]["kind"] == "other" and again["action"]["equipment"] == "humidifier"
 
     logs = client.get(f"{url}/logs").json()
-    assert [(r["title"], r["decision"]) for r in logs][0] == (body["candidates"][0]["title"], "done")
+    assert len(logs) == 1 and logs[0]["title"] == "후보에 없는 조치: 가습"
     assert logs[0]["vpd_after_2h"] is None  # 05시 값이 아직 없음
 
     post(client, gh["id"], m("2026-10-01T04:00:00", t=18, rh=95, co2=450),
@@ -174,20 +178,26 @@ def test_advice_saved_per_hour_and_decisions_logged(client):  # noqa: F811
     assert client.get(url).json()["advice_id"] != advice_id
 
     # 취소
-    client.post(f"{url}/{advice_id}/decisions", json={"candidate_index": 0, "decision": None})
-    assert all(r["decision"] != "done" or r["advice_id"] != advice_id for r in client.get(f"{url}/logs").json())
+    assert client.delete(f"{url}/{advice_id}/action").status_code == 204
+    assert client.get(f"{url}/logs").json() == []
 
 
-def test_decision_validation(client):  # noqa: F811
+def test_action_validation(client):  # noqa: F811
     gh = client.post("/greenhouses", json=API_GH).json()
     post(client, gh["id"], m("2026-10-01T00:00:00", co2=450))
     advice_id = client.get(f"/greenhouses/{gh['id']}/advisor").json()["advice_id"]
-    url = f"/greenhouses/{gh['id']}/advisor/{advice_id}/decisions"
-    assert client.post(url, json={"candidate_index": 9, "decision": "done"}).status_code == 422
-    assert client.post(url, json={"candidate_index": 0, "decision": "launch"}).status_code == 422
+    url = f"/greenhouses/{gh['id']}/advisor/{advice_id}/action"
+    assert client.post(url, json={"kind": "candidate", "candidate_index": 9}).status_code == 422
+    assert client.post(url, json={"kind": "candidate"}).status_code == 422
+    assert client.post(url, json={"kind": "launch"}).status_code == 422
+    assert client.post(url, json={"kind": "other", "equipment": "dehumidifier"}).status_code == 422  # 미등록
+    assert client.post(url, json={"kind": "none"}).status_code == 422  # 이유 태그 필요
+    assert client.post(url, json={"kind": "none", "reason": "weather"}).status_code == 200
+    logs = client.get(f"/greenhouses/{gh['id']}/advisor/logs").json()
+    assert logs[0]["title"] == "조치 안 함 (바깥 날씨)" and logs[0]["reason"] == "weather"
     other = client.post("/greenhouses", json=API_GH).json()
-    assert client.post(f"/greenhouses/{other['id']}/advisor/{advice_id}/decisions",
-                       json={"candidate_index": 0, "decision": "done"}).status_code == 404
+    assert client.post(f"/greenhouses/{other['id']}/advisor/{advice_id}/action",
+                       json={"kind": "none", "reason": "other"}).status_code == 404
 
 
 def test_ask_returns_rule_answer_without_llm(client):  # noqa: F811
@@ -201,5 +211,5 @@ def test_delete_greenhouse_removes_advice(client):  # noqa: F811
     gh = client.post("/greenhouses", json=API_GH).json()
     post(client, gh["id"], m("2026-10-01T00:00:00", co2=450))
     advice_id = client.get(f"/greenhouses/{gh['id']}/advisor").json()["advice_id"]
-    client.post(f"/greenhouses/{gh['id']}/advisor/{advice_id}/decisions", json={"candidate_index": 0, "decision": "done"})
+    client.post(f"/greenhouses/{gh['id']}/advisor/{advice_id}/action", json={"kind": "candidate", "candidate_index": 0})
     assert client.delete(f"/greenhouses/{gh['id']}").status_code == 204

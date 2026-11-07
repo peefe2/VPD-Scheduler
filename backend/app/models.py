@@ -160,7 +160,8 @@ class AdviceQuestion(SQLModel, table=True):
 
 
 class AdviceDecision(SQLModel, table=True):
-    """후보별 "실행함"/"이번엔 안 함". 같은 후보를 다시 누르면 바꾼다. 설비 명령이 아니다."""
+    """예전 방식: 후보별 "실행함"/"이번엔 안 함" (2026-11-07부터 AdviceAction으로 바꿈, 새로 쓰지 않음).
+    이미 있는 DB의 행을 온실 삭제 때 함께 지우려고 모델만 남겨 둔다."""
 
     __table_args__ = (UniqueConstraint("advice_id", "candidate_index"),)
 
@@ -168,6 +169,24 @@ class AdviceDecision(SQLModel, table=True):
     advice_id: int = Field(foreign_key="advicerecord.id", index=True)
     candidate_index: int
     decision: str  # "done" | "skipped"
+    decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class AdviceAction(SQLModel, table=True):
+    """정시 추천 1건에 대해 "이번에 한 조치" 하나 (결정 2026-11-07). 설비 명령이 아니라 기록이다.
+
+    kind: "candidate"(후보 중 하나, candidate_index) / "other"(후보에 없는 등록 설비, equipment) /
+    "none"(조치 안 함, reason 태그). 2시간 뒤 VPD는 저장하지 않고 조회할 때 실측에서 붙인다.
+    공개 데모 온실에서는 질문하기 대화와 같은 열쇠(visitor)로 사람마다 따로 남긴다. 내 온실은 None.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    advice_id: int = Field(foreign_key="advicerecord.id", index=True)
+    visitor: str | None = Field(default=None, index=True, max_length=64)
+    kind: str
+    candidate_index: int | None = None
+    equipment: str | None = None
+    reason: str | None = None
     decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

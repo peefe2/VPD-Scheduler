@@ -59,15 +59,10 @@ def test_model_state_falls_back_without_co2():
     assert f.source == "persistence"
 
 
-@pytest.mark.parametrize("verdicts, source", [
-    ([Verdict.BETTER] * 5, "model"),  # 3~5주차 연속 개선
-    ([Verdict.BETTER] * 4 + [Verdict.NOT_BETTER], "persistence"),
-])
-def test_reference_horizon_needs_own_switch_rule(verdicts, source):
-    st = HorizonStatus(6, State.REFERENCE, buckets(verdicts))
-    (f,) = displayed_forecasts(hourly(), [st], fake_predictor, 0.5, 1.5)
-    assert f.reference and f.source == source
-    assert all(b.state_after is None for b in st.buckets)  # 원본 버킷은 그대로
+def test_reference_horizon_not_displayed():
+    # +6h는 검증용 — 이 온실 +6h 버킷이 연속 개선이어도 오늘 화면에는 내보내지 않는다 (2026-11-07)
+    st = [HorizonStatus(1, State.MODEL), HorizonStatus(6, State.REFERENCE, buckets([Verdict.BETTER] * 5))]
+    assert [f.horizon for f in displayed_forecasts(hourly(), st, fake_predictor, 0.5, 1.5)] == [1]
 
 
 def test_negative_model_value_clipped():
@@ -136,6 +131,6 @@ def test_today_empty_and_learning(client):  # noqa: F811
     assert body["latest"]["hour"] == "2026-10-01T05:00:00"
     assert body["basis"] == "persistence"
     assert [(f["horizon"], f["state"], f["source"]) for f in body["forecasts"]] == [
-        (1, "learning", "persistence"), (3, "learning", "persistence"), (6, "learning", "persistence")]
+        (1, "learning", "persistence"), (3, "learning", "persistence")]  # +6h는 검증용이라 없음
     assert body["forecasts"][0]["target_at"] == "2026-10-01T06:00:00"
     assert body["run_hours"] >= 1

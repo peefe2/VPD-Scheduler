@@ -22,9 +22,9 @@
 
 .nowValue {
   font-family: var(--mono);
-  font-size: 48px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.045em;
   line-height: 1;
 }
 
@@ -55,9 +55,10 @@
 
 .run {
   font-family: var(--mono);
-  font-size: 32px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .outlook {
@@ -79,7 +80,8 @@
 
 .horizons {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* +6h를 뺀 뒤 지평 2개가 줄을 꽉 채우게 */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -88,7 +90,8 @@
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-l);
-  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -102,16 +105,17 @@
 }
 
 .hzName {
-  font-family: var(--mono);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-3);
 }
 
 .hzValue {
   font-family: var(--mono);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
 }
 
 .hzMeta {
@@ -160,4 +164,56 @@
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 4px;
+}
+
+/* 현재 VPD 게이지 */
+.gauge {
+  margin-top: 22px;
+}
+
+.gaugeTrack {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--below-soft), var(--surface-muted) 30%, var(--surface-muted) 70%, var(--above-soft));
+}
+
+.gaugeBand {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--scale-2);
+}
+
+.gaugeMark {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: currentColor;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(16 24 20 / 30%);
+}
+
+.gaugeScale {
+  position: relative;
+  height: 34px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.gaugeScale span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.gaugeScale .gaugeZone {
+  top: 16px;
+  font-weight: 600;
+  color: var(--ink-4);
 }

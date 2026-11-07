@@ -66,17 +66,9 @@ export function TrustPage({ id }: { id: number }) {
         sub={`${gh?.name} · ${day(bt.history_start)} ~ ${day(bt.history_end)} · 정시 ${bt.hours.toLocaleString('ko-KR')}시간`}
       />
 
-      {gh?.connection_type === 'replay' && (
+      {(gh?.connection_type === 'replay' || bt.model_set !== 'deployed') && (
         <div style={{ marginBottom: 16 }}>
-          <ReplayNotice gh={gh} />
-        </div>
-      )}
-      {bt.model_set !== 'deployed' && (
-        <div style={{ marginBottom: 16 }}>
-          <Notice tone="brand">
-            데모 모드 · <strong>{bt.model_set.replace('loso:', '')}</strong>을(를) 학습에서 뺀 모델로 계산했습니다. 학습에 쓴
-            데이터로 재면 성능이 실제보다 좋게 나오기 때문입니다.
-          </Notice>
+          <ReplayNotice gh={gh} modelSet={bt.model_set} explain />
         </div>
       )}
 
@@ -114,7 +106,7 @@ export function TrustPage({ id }: { id: number }) {
                     <tr key={r.horizon}>
                       <td className="mono">
                         {r.horizon}
-                        {'reference' in r && <span className="muted"> · 참고용</span>}
+                        {'reference' in r && <span className="muted"> · 검증용</span>}
                       </td>
                       <td className="num">
                         <span className={s.pos}>{signedPct(r.a)}</span> <span className="muted">({r.aImproved})</span>
@@ -162,7 +154,7 @@ export function TrustPage({ id }: { id: number }) {
             </ol>
             <p className={hintClass} style={{ marginTop: 12 }}>
               전환은 느리게, 복귀는 빠르게 합니다. 실제로는 나쁜 모델을 쓰는 쪽이 보수적으로 persistence에 머무는 쪽보다
-              피해가 크기 때문입니다. +6h는 참고용으로만 보여줍니다.
+              피해가 크기 때문입니다. +6h는 검증용으로만 계산하고 오늘 화면에는 보여주지 않습니다.
             </p>
           </Card>
           {!gh?.has_co2 && <Notice tone="warn">{STATE.no_co2.desc}</Notice>}

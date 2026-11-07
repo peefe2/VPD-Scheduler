@@ -1,4 +1,4 @@
-import type { BandStatus, ConnectionType, Equipment, HorizonState } from '../api/types'
+import type { BandStatus, ConnectionType, Equipment, HorizonState, SkipReason } from '../api/types'
 
 export const EQUIPMENT: { value: Equipment; label: string }[] = [
   { value: 'vent', label: '천창·측창 환기' },
@@ -7,6 +7,14 @@ export const EQUIPMENT: { value: Equipment; label: string }[] = [
   { value: 'humidifier', label: '가습(포그·미스트)' },
   { value: 'dehumidifier', label: '제습기' },
   { value: 'heater', label: '난방' },
+]
+
+// "조치 안 함"의 이유 (백엔드 routers/advisor.SKIP_REASONS와 같은 목록)
+export const SKIP_REASONS: { value: SkipReason; label: string }[] = [
+  { value: 'weather', label: '바깥 날씨' },
+  { value: 'unavailable', label: '설비를 쓸 수 없음' },
+  { value: 'soon', label: '곧 바뀔 것 같음' },
+  { value: 'other', label: '기타' },
 ]
 
 export const CONNECTIONS: { value: ConnectionType; label: string; tag: string; desc: string; disabled?: boolean }[] = [
@@ -43,7 +51,7 @@ export const STATE: Record<HorizonState, { label: string; tone: Tone; desc: stri
   },
   learning: { label: '학습 중', tone: 'info', desc: '이력이 14일 미만이라 아직 판정하지 않습니다.' },
   no_co2: { label: 'CO2 없음', tone: 'warn', desc: 'CO2 없이 모델을 쓸 수 있는지는 검증되지 않아 persistence만 씁니다.' },
-  reference: { label: '참고용', tone: 'neutral', desc: '+6h는 검증 표본이 적어 전환 판정에서 제외합니다.' },
+  reference: { label: '검증용', tone: 'neutral', desc: '+6h는 검증용으로만 계산하고 오늘 화면·어드바이저 예측에는 쓰지 않습니다.' },
 }
 
 export const BAND_STATUS: Record<BandStatus, { label: string; tone: Tone }> = {

@@ -30,7 +30,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .weekdays {
@@ -52,9 +52,9 @@
   position: relative;
   aspect-ratio: 1 / 0.86;
   min-height: 76px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  padding: 8px 9px;
+  border-radius: 12px;
+  border: 1px solid rgb(16 24 20 / 4%);
+  padding: 9px 10px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -114,8 +114,9 @@
 
 .dayNum {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  opacity: 0.75;
 }
 
 .cellFoot {
@@ -127,8 +128,9 @@
 
 .cellPct {
   font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
@@ -146,8 +148,8 @@
 .nightLine {
   font-family: var(--mono);
   font-size: 11px;
-  font-weight: 500;
-  opacity: 0.85;
+  font-weight: 600;
+  opacity: 0.7;
 }
 
 /* ---------- 범례 ---------- */
@@ -243,7 +245,8 @@
 
 .chartAxis {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
   fill: var(--ink-3);
 }
 

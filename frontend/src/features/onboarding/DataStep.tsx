@@ -346,7 +346,7 @@ function TokenPanel({ id, issue }: { id: number; issue: ReturnType<typeof useIss
       {token && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-            <code className="mono" style={{ fontSize: 12, wordBreak: 'break-all', userSelect: 'all' }}>
+            <code className="code" style={{ fontSize: 12, wordBreak: 'break-all', userSelect: 'all' }}>
               {token}
             </code>
             <Button variant="ghost" onClick={copy}>
@@ -374,13 +374,13 @@ function IngestGuide({ id }: { id: number }) {
       <ul className={s.list}>
         <li>
           <span className={s.listKey}>주소</span>
-          <span className={`${s.listVal} mono`}>
+          <span className={`${s.listVal} code`}>
             POST {apiOrigin()}/api/greenhouses/{id}/ingest
           </span>
         </li>
         <li>
           <span className={s.listKey}>인증</span>
-          <span className={`${s.listVal} mono`}>Authorization: Bearer &lt;토큰&gt;</span>
+          <span className={`${s.listVal} code`}>Authorization: Bearer &lt;토큰&gt;</span>
         </li>
         <li>
           <span className={s.listKey}>시각</span>
@@ -397,7 +397,7 @@ function IngestGuide({ id }: { id: number }) {
           <span className={s.listVal}>최대 1,000건</span>
         </li>
       </ul>
-      <pre className="mono" style={{ marginTop: 14, fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
+      <pre className="code" style={{ marginTop: 14, fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
         {EXAMPLE}
       </pre>
       <TokenPanel id={id} issue={issue} />
@@ -421,7 +421,7 @@ function ReplayGuide({ id, source }: { id: number; source: string | null }) {
   }
   return (
     <Card title="재생 모드" sub="연구 데이터를 날짜만 오늘로 옮겨, 실제 시계에 맞춰 정시마다 1건씩 보냅니다.">
-      <pre className="mono" style={{ fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
+      <pre className="code" style={{ fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
         {`cd research\nuv run --project ../backend python replay_ingest.py ${id} ${source} --token ${issue.data?.token ?? '<토큰>'}`}
       </pre>
       <TokenPanel id={id} issue={issue} />

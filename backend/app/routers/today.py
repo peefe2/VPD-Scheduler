@@ -30,8 +30,8 @@ def today_payload(session: Session, greenhouse: Greenhouse) -> dict:
     ).first()
     statuses, predictor, model_set = evaluate_horizons(greenhouse, hourly)
     forecasts = displayed_forecasts(hourly, statuses, predictor, low, high)
-    # 유지 시간 안내의 근거: 참고용(+6h)을 뺀 지평 중 하나라도 모델값이면 "model"
-    basis = "model" if any(f.source == "model" and not f.reference for f in forecasts) else "persistence"
+    # 유지 시간 안내의 근거: 표시 지평 중 하나라도 모델값이면 "model"
+    basis = "model" if any(f.source == "model" for f in forecasts) else "persistence"
     return {
         **base,
         "model_set": model_set,

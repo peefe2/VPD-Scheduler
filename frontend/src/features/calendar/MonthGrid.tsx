@@ -54,6 +54,7 @@ export function MonthGrid({
               data-insufficient={insufficient}
               aria-pressed={selected === date}
               aria-label={label}
+              title={insufficient ? undefined : `낮 ${d.daytime.hours_in_band}/${d.daytime.hours_observed}시간 대역 안`}
               onClick={() => onSelect(date)}
             >
               <span className={s.dayNum}>{dayNum}</span>
@@ -62,12 +63,8 @@ export function MonthGrid({
                   {insufficient ? (
                     <span className={s.cellNote}>데이터 부족</span>
                   ) : (
-                    <>
-                      <span className={s.cellPct}>{pct(d.daytime.in_band_ratio)}</span>
-                      <span className={s.cellNote}>
-                        {d.daytime.hours_in_band}/{d.daytime.hours_observed}h
-                      </span>
-                    </>
+                    // 몇 시간 중 몇 시간인지는 날짜 상세와 툴팁에서 (칸을 덜 빽빽하게, 2026-11-07)
+                    <span className={s.cellPct}>{pct(d.daytime.in_band_ratio)}</span>
                   )}
                 </span>
                 <span className={s.nightLine} aria-hidden="true">

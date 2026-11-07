@@ -1,51 +1,54 @@
-/* 디자인 토큰. 목업(Design 캔버스)의 팔레트를 기준으로 정리. */
+/* 디자인 토큰 (2026-11-07 개편: 맑은 배경 + 흰 카드 + 옅은 그림자, Pretendard). */
 :root {
-  --bg: #f5f3ec;
-  --surface: #fcfbf7;
+  --bg: #f3f5f2;
+  --surface: #ffffff;
   --surface-strong: #ffffff;
-  --surface-muted: #ece8da;
-  --line: #ddd8ca;
-  --line-strong: #c9c3b2;
+  --surface-muted: #eef1ed;
+  --line: #e2e7e1;
+  --line-strong: #c8d0c7;
 
-  --ink: #1b211e;
-  --ink-2: #3b4640;
-  --ink-3: #5b655f;
-  --ink-4: #8c968f;
+  --ink: #101814;
+  --ink-2: #33403a;
+  --ink-3: #5f6b65;
+  --ink-4: #8f9a94;
 
-  --brand: #1b5e49;
-  --brand-2: #1f6b54;
-  --brand-soft: #dcebe3;
-  --brand-tint: #f3f8f5;
+  --brand: #0d6148;
+  --brand-2: #138a63;
+  --brand-soft: #d9efe4;
+  --brand-tint: #f1f9f5;
 
-  --side-bg: #17201c;
-  --side-active: #2b3a33;
-  --side-line: #33443b;
-  --side-ink: #f3f1e8;
-  --side-ink-2: #b9c2bc;
-  --side-dot: #5fb392;
+  --side-bg: #0e1713;
+  --side-active: #1d2b25;
+  --side-line: #24342d;
+  --side-ink: #f2f5f1;
+  --side-ink-2: #a9b6af;
+  --side-dot: #4cc28f;
 
   /* 대역 아래(과습)는 파랑, 위(건조)는 주황 — 색상만이 아니라 밝기도 다르게 */
-  --below: #2f6db0;
-  --below-soft: #dce6f2;
-  --above: #b4541a;
-  --above-soft: #f6e3d3;
+  --below: #2563b0;
+  --below-soft: #e1ebf8;
+  --above: #c2561a;
+  --above-soft: #fbe8db;
   --warn: #8f3f10;
-  --danger: #a5341f;
+  --danger: #b4321c;
 
   /* 낮 대역 안 비율 단계 (밝을수록 낮음) */
-  --scale-0: #eee9da;
-  --scale-1: #cfe3d7;
-  --scale-2: #94c4ab;
-  --scale-3: #4f9a7a;
-  --scale-4: #1f6b54;
+  --scale-0: #eceee6;
+  --scale-1: #cfe9db;
+  --scale-2: #92cfb0;
+  --scale-3: #3fa57c;
+  --scale-4: #0f7353;
 
-  --radius-s: 8px;
-  --radius-m: 12px;
-  --radius-l: 16px;
-  --shadow: 0 1px 2px rgb(23 32 28 / 4%), 0 4px 16px rgb(23 32 28 / 4%);
+  --radius-s: 10px;
+  --radius-m: 14px;
+  --radius-l: 18px;
+  --shadow: 0 1px 2px rgb(16 24 20 / 4%), 0 6px 20px rgb(16 24 20 / 5%);
+  --shadow-lg: 0 2px 6px rgb(16 24 20 / 5%), 0 18px 48px rgb(16 24 20 / 9%);
 
-  --font: 'IBM Plex Sans KR', system-ui, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* 숫자는 본문과 같은 글꼴에 고정폭 숫자로 (font-variant-numeric). 토큰·코드만 진짜 고정폭 */
+  --mono: var(--font);
+  --code: 'JetBrains Mono', ui-monospace, monospace;
 
   color-scheme: light;
 }
@@ -68,8 +71,12 @@ body {
   color: var(--ink);
   font-family: var(--font);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  font-feature-settings: 'tnum';
   -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 h1,
@@ -98,6 +105,11 @@ select {
 .mono {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
+}
+
+.code {
+  font-family: var(--code);
+  font-size: 0.92em;
 }
 
 .muted {

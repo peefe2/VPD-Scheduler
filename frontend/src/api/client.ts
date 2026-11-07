@@ -1,5 +1,6 @@
 import type {
-  AdviceDecision,
+  AdviceAction,
+  AdviceActionInput,
   BandVersion,
   AdviceLog,
   AdviceResponse,
@@ -50,6 +51,8 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 })
 
+const qs = (visitor?: string) => (visitor ? `?visitor=${encodeURIComponent(visitor)}` : '')
+
 export const api = {
   listGreenhouses: () => request<Greenhouse[]>('/greenhouses'),
   getGreenhouse: (id: number) => request<Greenhouse>(`/greenhouses/${id}`),
@@ -77,20 +80,17 @@ export const api = {
     request<HourlyReading[]>(`/greenhouses/${id}/readings?start=${start}&end=${end}`),
   backtest: (id: number) => request<Backtest>(`/greenhouses/${id}/backtest`),
   today: (id: number) => request<TodayResponse>(`/greenhouses/${id}/today`),
-  advice: (id: number) => request<AdviceResponse>(`/greenhouses/${id}/advisor`),
-  decide: (id: number, adviceId: number, candidateIndex: number, decision: AdviceDecision | null) =>
-    request<{ advice_id: number; decisions: Record<string, AdviceDecision> }>(
-      `/greenhouses/${id}/advisor/${adviceId}/decisions`,
-      json('POST', { candidate_index: candidateIndex, decision }),
-    ),
-  adviceLogs: (id: number) => request<AdviceLog[]>(`/greenhouses/${id}/advisor/logs`),
-  // visitor: 읽기 전용 공개 데모에서만 보내는 브라우저별 id (대화를 방문자마다 나눈다)
+  // visitor: 로그인 안 한 방문자(공개 데모)의 브라우저별 id. 대화·조치 기록을 방문자마다 나눈다
+  advice: (id: number, visitor?: string) => request<AdviceResponse>(`/greenhouses/${id}/advisor` + qs(visitor)),
+  recordAction: (id: number, adviceId: number, body: AdviceActionInput, visitor?: string) =>
+    request<AdviceAction>(`/greenhouses/${id}/advisor/${adviceId}/action`, json('POST', { ...body, visitor })),
+  clearAction: (id: number, adviceId: number, visitor?: string) =>
+    request<void>(`/greenhouses/${id}/advisor/${adviceId}/action` + qs(visitor), { method: 'DELETE' }),
+  adviceLogs: (id: number, visitor?: string) => request<AdviceLog[]>(`/greenhouses/${id}/advisor/logs` + qs(visitor)),
   ask: (id: number, question: string, visitor?: string) =>
     request<AdviceQuestion>(`/greenhouses/${id}/advisor/ask`, json('POST', { question, visitor })),
   questions: (id: number, visitor?: string) =>
-    request<AdviceQuestion[]>(
-      `/greenhouses/${id}/advisor/questions` + (visitor ? `?visitor=${encodeURIComponent(visitor)}` : ''),
-    ),
+    request<AdviceQuestion[]>(`/greenhouses/${id}/advisor/questions` + qs(visitor)),
   config: () => request<AppConfig>('/config'),
   me: () => request<Me>('/auth/me'),
   signup: (email: string, password: string) => request<Me>('/auth/signup', json('POST', { email, password })),

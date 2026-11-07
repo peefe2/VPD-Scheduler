@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, delete, select
 
-from app.advisor import answer_question, build_fact_sheet, make_advice, situation
+from app.advisor import EQUIPMENT_KO, answer_question, build_fact_sheet, make_advice, situation
 from app.auth import greenhouse_access, optional_user
 from app.db import get_session
-from app.models import AdviceDecision, AdviceQuestion, AdviceRecord, ConnectionType, Greenhouse, Reading, User
+from app.models import AdviceAction, AdviceQuestion, AdviceRecord, ConnectionType, Greenhouse, Reading, User
 from app.routers.greenhouses import get_greenhouse
 from app.routers.today import today_payload
 from app.today import band_status
@@ -20,6 +20,8 @@ router = APIRouter(prefix="/greenhouses/{greenhouse_id}/advisor", tags=["advisor
 
 LIVE = {ConnectionType.API, ConnectionType.REPLAY}
 HISTORY_TURNS = 3  # 후속 질문에 같이 보내는 앞 대화 수
+# "조치 안 함"의 이유 태그. 재배 전문가가 규칙을 검토할 때 쓸 정보라 자유 글 대신 고정 목록
+SKIP_REASONS = {"weather": "바깥 날씨", "unavailable": "설비를 쓸 수 없음", "soon": "곧 바뀔 것 같음", "other": "기타"}
 
 
 def _unavailable(reason: str) -> dict:
@@ -35,16 +37,32 @@ def _fact_or_reason(session: Session, gh: Greenhouse) -> tuple[dict | None, str]
     return build_fact_sheet(gh, today), ""
 
 
-def _decisions(session: Session, advice_id: int) -> dict[int, str]:
-    rows = session.exec(select(AdviceDecision).where(AdviceDecision.advice_id == advice_id)).all()
-    return {r.candidate_index: r.decision for r in rows}
+def _has_actions(session: Session, advice_id: int) -> bool:
+    return session.exec(select(AdviceAction.id).where(AdviceAction.advice_id == advice_id)).first() is not None
+
+
+def _action_out(a: AdviceAction | None) -> dict | None:
+    if a is None:
+        return None
+    return {"kind": a.kind, "candidate_index": a.candidate_index, "equipment": a.equipment,
+            "reason": a.reason, "decided_at": a.decided_at}
+
+
+def _action_title(a: AdviceAction, record: AdviceRecord) -> str:
+    if a.kind == "candidate":
+        return record.candidates[a.candidate_index]["title"]
+    if a.kind == "other":
+        return f"후보에 없는 조치: {EQUIPMENT_KO.get(a.equipment, a.equipment)}"
+    return f"조치 안 함 ({SKIP_REASONS.get(a.reason, '이유 없음')})"
 
 
 @router.get("")
-def get_advice(greenhouse_id: int, session: Session = Depends(get_session)):
-    """현재 정시 기준 조치 후보. 같은 정시에 다시 부르면 저장된 후보를 그대로 준다
-    (기록과 화면이 어긋나지 않게). 아직 아무 선택이 없고 사실 시트(설비·대역 등)가 바뀌었으면
-    새로 만든다. 화면이 1분마다 다시 부르므로, 같은 사실 시트로는 LLM을 다시 부르지 않는다."""
+def get_advice(greenhouse_id: int, visitor: str | None = None, session: Session = Depends(get_session),
+               user: User | None = Depends(optional_user)):
+    """현재 정시 기준 조치 후보와, 보는 사람이 이 정시에 남긴 조치(action). 같은 정시에 다시 부르면
+    저장된 후보를 그대로 준다 (기록과 화면이 어긋나지 않게). 아무도 기록하지 않았고 사실 시트(설비·
+    대역 등)가 바뀌었으면 새로 만든다. 화면이 1분마다 다시 부르므로, 같은 사실 시트로는 LLM을 다시
+    부르지 않는다."""
     gh = get_greenhouse(greenhouse_id, session)
     fact, reason = _fact_or_reason(session, gh)
     if fact is None:
@@ -54,17 +72,19 @@ def get_advice(greenhouse_id: int, session: Session = Depends(get_session)):
     record = session.exec(
         select(AdviceRecord).where(AdviceRecord.greenhouse_id == gh.id, AdviceRecord.hour == hour)
     ).first()
-    if record is None or (record.fact_sheet != fact and not _decisions(session, record.id)):
+    if record is None or (record.fact_sheet != fact and not _has_actions(session, record.id)):
         advice = make_advice(fact)
         record = record or AdviceRecord(greenhouse_id=gh.id, hour=hour, source="", candidates=[], fact_sheet={})
         record.source, record.candidates, record.fact_sheet = advice.source, advice.candidates, fact
         record.guardrail = {"passed": advice.check.passed, "violations": advice.check.violations,
-                            "fallback_reason": advice.fallback_reason}
+                            "fallback_reason": advice.fallback_reason, "blocked": advice.blocked}
         session.add(record)
         session.commit()
         session.refresh(record)
 
-    decided = _decisions(session, record.id)
+    # 로그인도 방문자 id도 없으면 누구의 기록인지 모른다 (questions와 같은 규칙)
+    mine = None if user is None and visitor is None else session.exec(select(AdviceAction).where(
+        AdviceAction.advice_id == record.id, AdviceAction.visitor == _chat_key(gh, user, visitor))).first()
     return {
         "available": True,
         "advice_id": record.id,
@@ -73,59 +93,99 @@ def get_advice(greenhouse_id: int, session: Session = Depends(get_session)):
         "source": record.source,
         "summary": situation(record.fact_sheet),
         "fact_sheet": record.fact_sheet,
-        "candidates": [{**c, "index": i, "decision": decided.get(i)} for i, c in enumerate(record.candidates)],
-        # 이 컬럼이 생기기 전 기록(guardrail None)은 규칙 후보였으므로 통과로 본다
-        "guardrail": record.guardrail or {"passed": True, "violations": [], "fallback_reason": ""},
+        "candidates": [{**c, "index": i} for i, c in enumerate(record.candidates)],
+        "action": _action_out(mine),
+        # 이 컬럼이 생기기 전 기록(guardrail None)은 규칙 후보였으므로 통과로 본다. blocked는 나중에
+        # 더한 키라 예전 기록에는 없다
+        "guardrail": {"passed": True, "violations": [], "fallback_reason": "", "blocked": [],
+                      **(record.guardrail or {})},
     }
 
 
-class DecisionIn(BaseModel):
-    candidate_index: int = Field(ge=0)
-    decision: Literal["done", "skipped"] | None  # None이면 선택 취소
+class ActionIn(BaseModel):
+    kind: Literal["candidate", "other", "none"]
+    candidate_index: int | None = Field(default=None, ge=0)
+    equipment: str | None = None
+    reason: Literal["weather", "unavailable", "soon", "other"] | None = None
+    # 로그인 안 한 방문자(공개 데모)의 브라우저 id. 질문하기와 같은 열쇠로 사람마다 나눈다
+    visitor: str | None = Field(default=None, min_length=1, max_length=64)
 
 
-@router.post("/{advice_id}/decisions")
-def decide(greenhouse_id: int, advice_id: int, body: DecisionIn, session: Session = Depends(get_session)):
-    get_greenhouse(greenhouse_id, session)
+def _record_for(session: Session, greenhouse_id: int, advice_id: int) -> AdviceRecord:
     record = session.get(AdviceRecord, advice_id)
     if record is None or record.greenhouse_id != greenhouse_id:
         raise HTTPException(404, "advice not found")
-    if body.candidate_index >= len(record.candidates):
-        raise HTTPException(422, "candidate_index out of range")
-    session.exec(delete(AdviceDecision).where(
-        AdviceDecision.advice_id == advice_id, AdviceDecision.candidate_index == body.candidate_index
-    ))
-    if body.decision is not None:
-        session.add(AdviceDecision(advice_id=advice_id, candidate_index=body.candidate_index,
-                                   decision=body.decision, decided_at=datetime.now(timezone.utc)))
+    return record
+
+
+@router.post("/{advice_id}/action")
+def record_action(greenhouse_id: int, advice_id: int, body: ActionIn, session: Session = Depends(get_session),
+                  user: User | None = Depends(optional_user)):
+    """이번 정시에 한 조치 하나를 남긴다 (다시 보내면 바꾼다). 설비 명령이 아니다."""
+    if user is None and body.visitor is None:
+        raise HTTPException(422, "visitor is required when not logged in")
+    gh = get_greenhouse(greenhouse_id, session)
+    record = _record_for(session, greenhouse_id, advice_id)
+    action = AdviceAction(advice_id=advice_id, visitor=_chat_key(gh, user, body.visitor), kind=body.kind)
+    if body.kind == "candidate":
+        if body.candidate_index is None or body.candidate_index >= len(record.candidates):
+            raise HTTPException(422, "candidate_index out of range")
+        action.candidate_index = body.candidate_index
+        action.equipment = record.candidates[body.candidate_index].get("equipment")
+    elif body.kind == "other":
+        # 그 정시 사실 시트의 등록 설비만 (기록과 근거가 어긋나지 않게)
+        if body.equipment not in record.fact_sheet["greenhouse"]["equipment"]:
+            raise HTTPException(422, "equipment must be a registered one")
+        action.equipment = body.equipment
+    else:
+        if body.reason is None:
+            raise HTTPException(422, "reason is required")
+        action.reason = body.reason
+    session.exec(delete(AdviceAction).where(AdviceAction.advice_id == advice_id,
+                                            AdviceAction.visitor == action.visitor))
+    session.add(action)
     session.commit()
-    return {"advice_id": advice_id, "decisions": _decisions(session, advice_id)}
+    session.refresh(action)
+    return _action_out(action)
+
+
+@router.delete("/{advice_id}/action", status_code=204)
+def clear_action(greenhouse_id: int, advice_id: int, visitor: str | None = None,
+                 session: Session = Depends(get_session), user: User | None = Depends(optional_user)):
+    if user is None and visitor is None:
+        raise HTTPException(422, "visitor is required when not logged in")
+    gh = get_greenhouse(greenhouse_id, session)
+    _record_for(session, greenhouse_id, advice_id)
+    session.exec(delete(AdviceAction).where(AdviceAction.advice_id == advice_id,
+                                            AdviceAction.visitor == _chat_key(gh, user, visitor)))
+    session.commit()
 
 
 @router.get("/logs")
-def logs(greenhouse_id: int, limit: int = 50, session: Session = Depends(get_session)):
-    """선택한 기록과 2시간 뒤 실측 VPD. 2시간 뒤 정시 값이 아직 없으면 null."""
+def logs(greenhouse_id: int, limit: int = 50, visitor: str | None = None, session: Session = Depends(get_session),
+         user: User | None = Depends(optional_user)):
+    """내가 남긴 조치와 그 정시·2시간 뒤 실측 VPD (최근 것부터). 2시간 뒤 정시 값이 아직 없으면 null.
+    효과를 판정하지 않는다 — 날씨 등 다른 요인도 VPD를 바꾼다."""
     gh = get_greenhouse(greenhouse_id, session)
+    if user is None and visitor is None:
+        return []
     rows = session.exec(
-        select(AdviceDecision, AdviceRecord)
-        .join(AdviceRecord, AdviceDecision.advice_id == AdviceRecord.id)
-        .where(AdviceRecord.greenhouse_id == greenhouse_id)
-        .order_by(AdviceRecord.hour.desc(), AdviceDecision.candidate_index)
+        select(AdviceAction, AdviceRecord)
+        .join(AdviceRecord, AdviceAction.advice_id == AdviceRecord.id)
+        .where(AdviceRecord.greenhouse_id == greenhouse_id, AdviceAction.visitor == _chat_key(gh, user, visitor))
+        .order_by(AdviceRecord.hour.desc())
         .limit(min(max(limit, 1), 200))
     ).all()
     out = []
-    for decision, record in rows:
+    for action, record in rows:
         after = session.exec(select(Reading).where(
             Reading.greenhouse_id == greenhouse_id, Reading.hour == record.hour + timedelta(hours=2)
         )).first()
-        c = record.candidates[decision.candidate_index]
         out.append({
             "advice_id": record.id,
             "observed_at": record.hour,
-            "title": c["title"],
-            "equipment": c.get("equipment"),
-            "decision": decision.decision,
-            "decided_at": decision.decided_at,
+            **_action_out(action),
+            "title": _action_title(action, record),
             "source": record.source,
             "vpd_at": record.fact_sheet["current"]["vpd"],
             "status_at": record.fact_sheet["current"]["band_status"],

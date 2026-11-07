@@ -9,7 +9,8 @@
 - model → persistence: 버킷 1개라도 개선율 <= 0이면 즉시.
 - 판정 불가(표본 부족) 버킷: 1개는 상태 유지, 2개 연속이면 persistence로 강제
   복귀 (검증 없이 모델 사용이 계속되는 것을 막음).
-- 이력 14일 미만: 학습 중. CO2 없는 온실: 영구 persistence. +6h: 항상 참고용.
+- 이력 14일 미만: 학습 중. CO2 없는 온실: 영구 persistence. +6h: 항상 검증용
+  (전환 판정·서비스 예측에 쓰지 않음, 결정 2026-11-07).
 상태는 저장하지 않고 이력 전체에서 매번 다시 계산한다.
 """
 
@@ -40,7 +41,7 @@ class State(StrEnum):
     PERSISTENCE = "persistence"
     MODEL = "model"
     NO_CO2 = "no_co2"  # CO2 센서 없음, 영구 persistence
-    REFERENCE = "reference"  # +6h, 전환 판정 제외
+    REFERENCE = "reference"  # +6h 검증용, 전환 판정·서비스 예측 제외
 
 
 class Verdict(StrEnum):
@@ -158,6 +159,6 @@ def evaluate_horizon(
                              "이력 14일 미만")
     if horizon in REFERENCE_ONLY_HORIZONS:
         return HorizonStatus(horizon, State.REFERENCE, buckets, None,
-                             "+6h는 검증 표본이 적어 참고용으로만 표시합니다")
+                             "+6h는 검증용으로만 계산하고 서비스 예측에는 쓰지 않습니다")
     state = run_state_machine(buckets)
     return HorizonStatus(horizon, state, buckets, next_judgment)

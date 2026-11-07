@@ -27,6 +27,35 @@ function ago(hours: number) {
   return `${num(Math.floor(hours / 24))}일`
 }
 
+// 현재 VPD가 적정 대역의 어디쯤인지 한 줄로. 눈금 끝은 대역 상한의 1.6배(값이 더 크면 값까지)
+function VpdGauge({ v, low, high }: { v: number; low: number; high: number }) {
+  const max = Math.max(high * 1.6, v * 1.1)
+  const at = (x: number) => `${Math.min(100, (x / max) * 100)}%`
+  const status = v < low ? 'below' : v > high ? 'above' : 'in'
+  return (
+    <div className={s.gauge} aria-hidden="true">
+      <div className={s.gaugeTrack}>
+        <span className={s.gaugeBand} style={{ left: at(low), width: `calc(${at(high)} - ${at(low)})` }} />
+        <span className={`${s.gaugeMark} ${s[status]}`} style={{ left: at(v) }} />
+      </div>
+      <div className={s.gaugeScale}>
+        <span style={{ left: at(low) }}>{low}</span>
+        <span style={{ left: at(high) }}>{high}</span>
+        {/* 구간 이름은 각 구간 가운데에 */}
+        <span className={s.gaugeZone} style={{ left: at(low / 2) }}>
+          과습
+        </span>
+        <span className={s.gaugeZone} style={{ left: at((low + high) / 2) }}>
+          적정
+        </span>
+        <span className={s.gaugeZone} style={{ left: at((high + max) / 2) }}>
+          건조
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function ForecastCard({ f }: { f: TodayForecast }) {
   const tone = BAND_STATUS[f.band_status]
   return (
@@ -80,7 +109,7 @@ function TopAdvice({ id }: { id: number }) {
 function HoldCard({ t }: { t: TodayResponse }) {
   const latest = t.latest!
   const status = BAND_STATUS[latest.band_status]
-  const modelOutlook = t.forecasts.filter((f) => f.source === 'model' && !f.reference)
+  const modelOutlook = t.forecasts.filter((f) => f.source === 'model')
   return (
     <Card title="대역 안 유지 시간" sub={`적정 대역 ${t.band.low}~${t.band.high} kPa`}>
       <div className={s.now}>
@@ -165,18 +194,13 @@ export function TodayPage({ id }: { id: number }) {
       <PageHeader title="오늘" sub={`${gh?.name} · 마지막 정시 ${day(latest.hour)} ${hhmm(latest.hour)}`} />
 
       <div className={s.notices}>
-        <ReplayNotice gh={gh} />
+        <ReplayNotice gh={gh} modelSet={t.model_set} />
         {stale > STALE_HOURS && (
           <Notice tone="warn">
             마지막 정시 값이 {ago(stale)} 전입니다.{' '}
             {gh?.connection_type === 'replay'
               ? '재생 스크립트가 실행 중인지 확인하세요.'
               : '게이트웨이가 값을 보내고 있는지 확인하세요.'}
-          </Notice>
-        )}
-        {t.model_set && t.model_set !== 'deployed' && (
-          <Notice tone="brand">
-            데모 모드 · <strong>{t.model_set.replace('loso:', '')}</strong>을(를) 학습에서 뺀 모델로 예측합니다.
           </Notice>
         )}
         {!gh?.has_co2 && <Notice tone="warn">{STATE.no_co2.desc}</Notice>}
@@ -193,6 +217,7 @@ export function TodayPage({ id }: { id: number }) {
               {status.label}
             </Badge>
           </div>
+          <VpdGauge v={latest.vpd} low={t.band.low} high={t.band.high} />
           <div className={s.sensors}>
             <span>
               온도<strong>{latest.temperature.toFixed(1)}°C</strong>

@@ -1,0 +1,365 @@
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+  /* 한국어 어절 중간에서 줄이 바뀌지 않게 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  text-decoration: none;
+}
+
+.topLinks {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.topLinks a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.topLinks a:hover {
+  color: var(--brand);
+}
+
+.hero {
+  padding: 48px 0 56px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow,
+.step {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand);
+  letter-spacing: 0.02em;
+}
+
+.title {
+  margin-top: 14px;
+  font-size: clamp(30px, 5vw, 48px);
+  line-height: 1.22;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: 20px;
+  max-width: 680px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.section {
+  padding: 48px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.h2 {
+  margin-top: 8px;
+  font-size: clamp(21px, 3vw, 26px);
+  line-height: 1.35;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.text {
+  margin-top: 14px;
+  max-width: 720px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+
+.note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* 같은 온도, 다른 VPD */
+.compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.compareCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+
+.compareCard[data-status='below'] {
+  border-color: var(--below-soft);
+  background: linear-gradient(var(--below-soft), var(--surface-strong) 70%);
+}
+.compareCard[data-status='in'] {
+  border-color: var(--brand-soft);
+  background: linear-gradient(var(--brand-soft), var(--surface-strong) 70%);
+}
+.compareCard[data-status='above'] {
+  border-color: var(--above-soft);
+  background: linear-gradient(var(--above-soft), var(--surface-strong) 70%);
+}
+
+.compareCond {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+
+.compareValue {
+  font-family: var(--mono);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.compareCard[data-status='below'] .compareValue {
+  color: var(--below);
+}
+.compareCard[data-status='in'] .compareValue {
+  color: var(--brand);
+}
+.compareCard[data-status='above'] .compareValue {
+  color: var(--above);
+}
+
+.unit {
+  margin-left: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+.compareStatus {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 실제 온실 */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+  max-width: 720px;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: var(--radius-m);
+  background: var(--surface-muted);
+}
+
+.factValue {
+  font-family: var(--mono);
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+.factLabel {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+/* 쓰는 순서 */
+.flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flowItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.flowNum {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.flowText {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+.sample {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.sampleDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.sampleCell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.sampleCell[data-dark] {
+  color: #fff;
+}
+
+.sampleNight {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--below);
+  white-space: nowrap;
+}
+
+/* 신뢰 */
+.trust {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px 16px 0;
+  border-top: 3px solid var(--brand-soft);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.trust li:nth-child(3) {
+  border-top-color: var(--brand-2);
+}
+.trust li:nth-child(4) {
+  border-top-color: var(--above-soft);
+}
+
+.trust strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.donts {
+  margin: 20px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+.closing {
+  padding: 48px 0;
+}
+
+.footer {
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+@media (max-width: 900px) {
+  .flow {
+    grid-template-columns: 1fr;
+  }
+  .trust {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 0 16px 40px;
+  }
+  .hero {
+    padding: 28px 0 40px;
+  }
+  .section,
+  .closing {
+    padding: 36px 0;
+  }
+  .compare,
+  .facts,
+  .trust {
+    grid-template-columns: 1fr;
+  }
+  .actions > * {
+    flex: 1 1 100%;
+  }
+}

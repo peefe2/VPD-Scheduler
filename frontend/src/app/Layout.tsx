@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useConfig, useGreenhouses, useLogout, useMe } from '../api/hooks'
 import { Icon, type IconName } from '../components/Icon'
+import { LogoMark } from '../components/Logo'
 import { Notice } from '../components/ui'
 import { connectionLabel } from '../lib/labels'
 import s from './Layout.module.css'
@@ -33,11 +34,18 @@ export function Layout() {
     <div className={s.shell}>
       <aside className={s.side}>
         <Link to="/" className={s.brand}>
-          <span className={s.brandDot} aria-hidden="true" />
-          VPD 캘린더
+          <LogoMark />
+          <span>
+            VPD 캘린더
+            <small className={s.brandSub}>스마트팜 의사결정 지원</small>
+          </span>
         </Link>
 
         <nav className={s.nav} aria-label="주 메뉴">
+          <NavLink to="/about" className={s.navItem}>
+            <Icon name="info" />
+            서비스 소개
+          </NavLink>
           {NAV.map((item) =>
             ghId ? (
               <NavLink key={item.to} to={`/g/${ghId}/${item.to}`} className={s.navItem}>
@@ -123,17 +131,22 @@ export function Layout() {
           {readonly && (
             <div style={{ marginBottom: 16 }}>
               <Notice tone="info">
-                읽기 전용 데모입니다. 둘러보기와 AI 어드바이저 질문하기만 할 수 있고, 온실 추가·수정과 기록은
-                막혀 있습니다. 질문한 대화는 이 브라우저에서만 보입니다.
+                읽기 전용 데모입니다. 둘러보기와 AI 어드바이저 질문하기·조치 기록 체험만 할 수 있고, 온실 추가·수정은
+                막혀 있습니다. 질문과 조치 기록은 이 브라우저에서만 보입니다.
               </Notice>
             </div>
           )}
-          {!readonly && !meLoading && !me && !['/login', '/signup'].includes(location.pathname) && (
-            <div style={{ marginBottom: 16 }}>
-              <Notice tone="info">
-                로그인하지 않으면 공개 데모 온실만 볼 수 있습니다(보기·AI 질문하기). <Link to="/login">로그인</Link>하거나{' '}
-                <Link to="/signup">회원가입</Link>하면 내 온실을 만들 수 있습니다.
-              </Notice>
+          {!readonly && !meLoading && !me && (
+            <div className={s.guestBar}>
+              <span>
+                <strong>공개 데모</strong>를 둘러보는 중 · 가입하면 내 온실을 등록할 수 있습니다
+              </span>
+              <span className={s.guestActions}>
+                <Link to="/login">로그인</Link>
+                <Link to="/signup" className={s.guestPrimary}>
+                  회원가입
+                </Link>
+              </span>
             </div>
           )}
           <Outlet />

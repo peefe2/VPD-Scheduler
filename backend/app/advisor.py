@@ -2,6 +2,7 @@
 
 결정 (2026-10-31):
 - 사실 시트에 이탈 예상 시각은 넣지 않는다. 예측값은 "모델 사용" 상태 지평의 값만 넣는다.
+  +6h는 오늘 화면에서 빠져 사실 시트에도 없다 (결정 2026-11-07).
 - persistence 상태(모델 사용 지평 없음)에서는 규칙 기반 안내만 한다 (LLM 미사용).
 - 자유 질문 답변에도 같은 가드레일을 적용한다.
 - 조치 기록에는 후보·선택·시각·사실 시트 스냅샷을 남기고, 2시간 뒤 VPD는 실측에서 붙인다.
@@ -57,7 +58,6 @@ def build_fact_sheet(greenhouse, today: dict) -> dict:
             "horizon": f["horizon"],
             "vpd": round(f["vpd"], 2),
             "band_status": f["band_status"],
-            "reference": f["reference"],
         }
         for f in today["forecasts"]
         if f["source"] == "model"
@@ -80,7 +80,7 @@ def build_fact_sheet(greenhouse, today: dict) -> dict:
         },
         # "모델 사용" 지평만. persistence 값은 현재 값과 같아 근거가 되지 않는다.
         "forecasts": forecasts,
-        "mode": "model" if any(not f["reference"] for f in forecasts) else "persistence",
+        "mode": "model" if forecasts else "persistence",
     }
 
 
@@ -192,7 +192,7 @@ def rule_candidates(fact: dict) -> list[dict]:
             out.append({"equipment": eq, "title": title, "reason": why})
 
     if status == "in":
-        leaving = [f for f in fact["forecasts"] if not f["reference"] and f["band_status"] != "in"]
+        leaving = [f for f in fact["forecasts"] if f["band_status"] != "in"]
         if leaving:
             f = leaving[0]
             out.append({
@@ -238,8 +238,7 @@ CONTRACT = """\
 - current.band_status 뜻: below=대역 아래(VPD가 낮음, 과습 쪽), above=대역 위(VPD가 높음, 건조 쪽),
   in=대역 안. in이면 지켜보기를 먼저 권하고, forecasts에서 대역을 벗어나는 지평이 있을 때만
   그 방향의 조치를 검토 방안으로 낸다. 사실 시트에 없는 상태(습도가 높다 등)를 지어내지 않는다.
-- VPD가 대역을 벗어나는 시각이나 시점을 예측하거나 단정하지 않는다. forecasts에서 reference가
-  true인 값(+6h)은 참고값이라 "예상된다"처럼 말하지 않는다.
+- VPD가 대역을 벗어나는 시각이나 시점을 예측하거나 단정하지 않는다.
 - 다음 표현은 쓰지 않는다: 자동으로, 자동 제어, 정확히, 정확하게, 예고, 반드시, 보장.
 - 너는 설비를 제어하지 않는다. 사람이 판단할 "방안"으로만 말한다.
 - 읽는 사람은 농가다. "사실 시트", JSON, 필드명, 영문 설비 코드는 쓰지 않는다. 설비는 위의 한글
@@ -307,13 +306,12 @@ def _ask_gemini(client, system: str, user: str, schema: dict | None = None) -> s
 
 
 def generate_with_llm(fact: dict) -> list[dict] | None:
-    """사실 시트만 넘겨 후보를 받는다. 꺼져 있으면 None. 출력은 make_advice에서
-    check_candidates를 통과해야 쓰인다. persistence 모드에서는 호출하지 않는다."""
+    """사실 시트와 필요한 방향(direction_lines)을 넘겨 후보를 받는다. 꺼져 있으면 None. 출력은
+    make_advice에서 check_candidates를 통과해야 쓰인다. persistence 모드에서는 호출하지 않는다."""
     client = llm_client()
     if client is None:
         return None
-    text = _ask_gemini(client, CANDIDATES_PROMPT, json.dumps(fact, ensure_ascii=False),
-                       LLMCandidates.model_json_schema())
+    text = _ask_gemini(client, CANDIDATES_PROMPT, _llm_input(fact), LLMCandidates.model_json_schema())
     try:
         parsed = LLMCandidates.model_validate_json(text)
     except ValidationError as e:
@@ -323,12 +321,12 @@ def generate_with_llm(fact: dict) -> list[dict] | None:
 
 def direction_lines(fact: dict) -> list[str]:
     """지금 VPD를 어느 쪽으로 움직여야 하는지와, 그 방향에 맞는/맞지 않는 등록 설비 (규칙 후보와 같은 표).
-    대역 안이면 모델 예측(참고값 제외)이 대역을 벗어나는 방향을 따른다. 등록 설비 전체 목록을 주면
+    대역 안이면 모델 예측이 대역을 벗어나는 방향을 따른다. 등록 설비 전체 목록을 주면
     작은 모델이 방향과 상관없이 그대로 나열했다 (평가 2026-11-01: 대역 위로 갈 때 난방 권함)."""
     registered = fact["greenhouse"]["equipment"]
     status = fact["current"]["band_status"]
     if status == "in":
-        leaving = [f for f in fact["forecasts"] if not f["reference"] and f["band_status"] != "in"]
+        leaving = [f for f in fact["forecasts"] if f["band_status"] != "in"]
         if not leaving:
             names = ", ".join(EQUIPMENT_KO[e] for e in registered) or "없음"
             return ["지금 필요한 방향: 없음(대역 안이고 예측도 대역 안). 설비 조치보다 지켜보기를 먼저 권한다.",
@@ -344,6 +342,14 @@ def direction_lines(fact: dict) -> list[str]:
     return lines
 
 
+def _llm_input(fact: dict) -> str:
+    """조치 후보·자유 질문 공통 입력. 작은 모델은 시스템 프롬프트보다 이 메시지를 더 따른다: 설비를
+    한글로, 방향별로 못박고, "사실 시트"라는 말은 넣지 않는다 (답변에 그대로 따라 나왔다).
+    후보 입력에 방향이 없을 때는 +6h 참고값을 근거처럼 쓴 사례가 있었다 (2026-11-01)."""
+    guide = "\n".join(direction_lines(fact) + ["등록되지 않은 설비는 이름도 쓰지 않는다."])
+    return f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n{guide}"
+
+
 def answer_with_llm(question: str, fact: dict, rejected: tuple[str, list[str]] | None = None,
                     history: list[dict] | None = None) -> str | None:
     """자유 질문 답변. 꺼져 있으면 None. 출력은 check_text를 통과해야 쓰인다.
@@ -352,10 +358,7 @@ def answer_with_llm(question: str, fact: dict, rejected: tuple[str, list[str]] |
     client = llm_client()
     if client is None:
         return None
-    # 작은 모델은 시스템 프롬프트보다 이 메시지를 더 따른다: 설비를 한글로, 방향별로 못박고,
-    # "사실 시트"라는 말은 넣지 않는다 (답변에 그대로 따라 나왔다)
-    guide = "\n".join(direction_lines(fact) + ["등록되지 않은 설비는 이름도 쓰지 않는다."])
-    user = f"지금 측정값:\n{json.dumps(fact, ensure_ascii=False)}\n\n{guide}\n\n"
+    user = _llm_input(fact) + "\n\n"
     if history:
         turns = "\n".join(f"사용자: {h['question']}\n도우미: {h['answer']}" for h in history)
         # 앞 답의 상황 설명("VPD는 0.28로 대역 아래…")을 매번 되풀이했다 (실측 2026-11-01)
@@ -376,6 +379,8 @@ class Advice:
     source: str  # "rule" | "llm"
     check: Check
     fallback_reason: str = ""
+    # 가드레일에 막힌 LLM 후보의 위반 목록 (규칙 후보로 대체했을 때만). check는 대체된 규칙 후보의 결과다
+    blocked: list[str] = field(default_factory=list)
 
 
 def make_advice(fact: dict) -> Advice:
@@ -390,7 +395,8 @@ def make_advice(fact: dict) -> Advice:
             check = check_candidates(llm, fact)
             if check.passed:
                 return Advice(summary, llm[:MAX_CANDIDATES], "llm", check)
-            return Advice(summary, rules, "rule", check_candidates(rules, fact), GUARDRAIL_FAILED)
+            return Advice(summary, rules, "rule", check_candidates(rules, fact), GUARDRAIL_FAILED,
+                          check.violations)
     return Advice(summary, rules, "rule", check_candidates(rules, fact))
 
 
