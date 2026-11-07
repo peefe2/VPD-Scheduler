@@ -269,3 +269,27 @@ export interface AdviceQuestion {
   vpd: number
   asked_at: string
 }
+
+/** 적정 대역 문헌 표 (GET /greenhouses/band-references). 온실 데이터와 무관한 고정 표 */
+export interface BandRecommendation {
+  low: number
+  high: number
+  source: string
+  evidence: string
+  note: string
+  original: string // 원문 단위가 kPa가 아니면 원문 값
+}
+
+export interface BandStage {
+  stage: string
+  label: string
+  recommend: BandRecommendation | null // null = 근거 부족 → 기본값 유지
+  reason?: string
+  references?: { low: number; high: number; source: string; label: string }[]
+}
+
+export interface BandReferences {
+  default: { low: number; high: number }
+  sources: Record<string, { short: string; citation: string; url: string }>
+  crops: Record<string, BandStage[]>
+}

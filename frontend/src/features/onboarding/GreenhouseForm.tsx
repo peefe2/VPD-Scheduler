@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { useTrainingSources } from '../../api/hooks'
 import type { Equipment, GreenhouseInput } from '../../api/types'
 import { Card, Field, Notice } from '../../components/ui'
+import { BandAdvice } from './BandAdvice'
 import { hintClass, inputClass, selectClass } from '../../components/classes'
 import { EQUIPMENT } from '../../lib/labels'
 import s from './onboarding.module.css'
@@ -119,6 +120,14 @@ export function GreenhouseForm({
           {bandError ??
             '기본값 0.5~1.5 kPa는 시설 채소의 주간 적정 범위로 보고된 값입니다. 작물과 시기에 맞게 바꿀 수 있습니다.'}
         </p>
+        <BandAdvice
+          crop={form.crop}
+          current={{ low: lo, high: hi }}
+          onApply={(l, h) => {
+            setLow(String(l))
+            setHigh(String(h))
+          }}
+        />
         {askBandApply && !bandError && (lo !== initial.vpd_low || hi !== initial.vpd_high) && (
           <fieldset className={s.applyBox}>
             <legend className={s.applyLegend}>바꾼 대역을 언제부터 적용할까요?</legend>

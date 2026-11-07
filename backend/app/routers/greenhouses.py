@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlmodel import Session, delete, select
 
+from app import band_reference
 from app.auth import greenhouse_access, optional_user, require_user
 from app.bands import band_versions, record_band_change
 from app.db import get_session
@@ -42,6 +43,12 @@ def get_greenhouse(greenhouse_id: int, session: Session) -> Greenhouse:
 def list_training_sources() -> list[str]:
     """holdout_source로 지정할 수 있는 학습 온실 목록 (데모용)."""
     return sorted(loso_sources())
+
+
+@router.get("/band-references")
+def band_references() -> dict:
+    """작물·생육 단계별 적정 대역 문헌 표 (app/band_reference.py). 온실 데이터와 무관한 고정 표."""
+    return band_reference.references()
 
 
 @router.post("", response_model=GreenhouseRead, status_code=201)

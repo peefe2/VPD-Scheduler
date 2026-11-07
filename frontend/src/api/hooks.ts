@@ -23,6 +23,9 @@ export const useGreenhouse = (id: number) =>
 export const useBands = (id: number) =>
   useQuery({ queryKey: ['greenhouses', id, 'bands'], queryFn: () => api.bands(id) })
 
+export const useBandReferences = () =>
+  useQuery({ queryKey: ['band-references'], queryFn: api.bandReferences, staleTime: Infinity })
+
 export const useTrainingSources = () =>
   useQuery({ queryKey: ['training-sources'], queryFn: api.trainingSources, staleTime: Infinity })
 

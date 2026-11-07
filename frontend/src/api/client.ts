@@ -1,4 +1,5 @@
 import type {
+  BandReferences,
   AdviceAction,
   AdviceActionInput,
   BandVersion,
@@ -61,6 +62,7 @@ export const api = {
     request<Greenhouse>(`/greenhouses/${id}`, json('PATCH', data)),
   bands: (id: number) => request<BandVersion[]>(`/greenhouses/${id}/bands`),
   trainingSources: () => request<string[]>('/greenhouses/training-sources'),
+  bandReferences: () => request<BandReferences>('/greenhouses/band-references'),
   ingestToken: (id: number) => request<IngestTokenStatus>(`/greenhouses/${id}/ingest-token`),
   issueIngestToken: (id: number) => request<IssuedIngestToken>(`/greenhouses/${id}/ingest-token`, { method: 'POST' }),
 
