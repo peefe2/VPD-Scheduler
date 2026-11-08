@@ -73,3 +73,22 @@ def test_startup_seeds_demo_only_when_enabled(monkeypatch):
     monkeypatch.setenv("VPD_DEMO", "1")
     main.startup()
     assert calls == ["init", "init", "demo"]
+
+
+def test_startup_continues_when_demo_seed_fails(monkeypatch, caplog):
+    def fail():
+        raise RuntimeError("lock timeout")
+
+    monkeypatch.setattr(main, "init_db", lambda: None)
+    monkeypatch.setattr(main, "seed_demo", fail)
+    monkeypatch.setenv("VPD_DEMO", "1")
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        main.startup()  # 예외가 밖으로 나오지 않는다
+    text = caplog.text
+    assert "DB 테이블 확인 끝" in text and "데모 온실 채우기 실패" in text
+
+
+def test_demo_seed_logs_how_many_hours(engine, tmp_path, caplog):  # noqa: F811
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        seed(engine, write_csv(tmp_path), datetime(2026, 11, 1, 10, 30))
+    assert "새로 채울 정시 59건" in caplog.text

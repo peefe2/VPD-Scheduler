@@ -7,7 +7,8 @@ def test_postgres_urls_use_psycopg_driver():
     for given in ("postgres://u:p@host/db?sslmode=require", "postgresql://u:p@host/db?sslmode=require"):
         url, kwargs = engine_options(given)
         assert url == "postgresql+psycopg://u:p@host/db?sslmode=require"
-        assert kwargs == {"pool_pre_ping": True}  # 무료 DB는 쉬다가 연결을 끊는다
+        assert kwargs["pool_pre_ping"]  # 무료 DB는 쉬다가 연결을 끊는다
+        assert kwargs["connect_args"] == {"connect_timeout": 10}  # 연결이 안 되면 멈추지 말고 오류
 
 
 def test_sqlite_keeps_thread_option():

@@ -9,6 +9,7 @@
 - 원본이 84일치라 처음 만든 뒤 약 7주가 지나면 더 채울 값이 없다. 그때는 DB에서 데모 온실을 지우고 다시 켠다.
 """
 
+import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -18,6 +19,8 @@ from sqlmodel import Session, select
 
 from app.models import ConnectionType, Equipment, Greenhouse, Reading
 from app.routers.ingest import Measurement, store_measurements
+
+log = logging.getLogger("uvicorn.error")
 
 DEMO_NAME = "데모 온실 (farm3 재생)"
 DEMO_SOURCE = "farm3_2023"
@@ -56,6 +59,7 @@ def ensure_demo(session: Session, now: datetime | None = None, data_path: Path =
 
     shown = df["date"] + shift
     todo = df[(shown <= pd.Timestamp(now)) & (shown > pd.Timestamp(last or datetime.min + timedelta(days=1)))]
+    log.info("데모 온실: 마지막 정시 %s, 새로 채울 정시 %d건", last, len(todo))
     store_measurements(session, gh, [
         Measurement(measured_at=(row.date + shift).to_pydatetime(), temperature=row.temp,
                     humidity=row.humidity, co2=None if pd.isna(row.co2) else row.co2)

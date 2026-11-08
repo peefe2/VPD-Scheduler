@@ -1,29 +1,51 @@
+import logging
 import os
 import re
-from contextlib import asynccontextmanager
+import time
+from collections.abc import Iterator
+from contextlib import asynccontextmanager, contextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import event
 from sqlmodel import Session
 
 from app.auth import VISITOR_WRITE
 from app.db import init_db
 from app.routers import advisor, auth, backtest, calendar, csv_import, greenhouses, ingest, readings, today
 
+log = logging.getLogger("uvicorn.error")  # uvicorn이 INFO로 출력하는 로거 (배포 로그에 보임)
+
 
 def seed_demo() -> None:
-    from app.db import engine
+    from app.db import engine, limit_lock_wait
     from app.demo import ensure_demo
 
     with Session(engine) as session:
+        event.listen(session, "after_begin", lambda _s, _t, conn: limit_lock_wait(conn))
         ensure_demo(session)
 
 
+@contextmanager
+def step(name: str) -> Iterator[None]:
+    # 시작 단계마다 시작·끝·걸린 시간을 남긴다 — 배포 서버가 어디서 멈췄는지 로그로 보이게
+    log.info("시작 준비: %s ...", name)
+    t = time.monotonic()
+    yield
+    log.info("시작 준비: %s 끝 (%.1f초)", name, time.monotonic() - t)
+
+
 def startup() -> None:
-    init_db()
+    with step("DB 테이블 확인"):
+        init_db()
     if os.environ.get("VPD_DEMO") == "1":
-        seed_demo()
+        # 데모 정시를 못 채워도 서버는 켠다 (이미 채운 이력으로 화면은 동작한다)
+        try:
+            with step("데모 온실 채우기"):
+                seed_demo()
+        except Exception:
+            log.exception("시작 준비: 데모 온실 채우기 실패 — 채우지 않고 서버를 켭니다")
 
 
 @asynccontextmanager
