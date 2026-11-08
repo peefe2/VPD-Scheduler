@@ -15,8 +15,8 @@ export function Steps({ current, ghId }: { current: 1 | 2 | 3; ghId?: number }) 
         const to = href(n)
         const inner = (
           <>
-            <span className={s.stepNum}>{n}</span>
-            {label}
+            <span className={s.stepNum}>{state === 'done' ? '✓' : n}</span>
+            <span className={s.stepLabel}>{label}</span>
           </>
         )
         return (

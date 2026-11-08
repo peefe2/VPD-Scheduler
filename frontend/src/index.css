@@ -124,3 +124,12 @@ select {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* iOS는 16px보다 작은 입력칸을 누르면 화면을 확대한다 */
+@media (max-width: 900px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

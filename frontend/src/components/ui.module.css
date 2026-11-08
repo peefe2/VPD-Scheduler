@@ -30,6 +30,12 @@
   line-height: 1.5;
 }
 
+@media (max-width: 720px) {
+  .card {
+    padding: 18px 16px;
+  }
+}
+
 /* ---------- Badge ---------- */
 .badge {
   display: inline-flex;

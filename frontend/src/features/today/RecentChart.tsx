@@ -1,10 +1,8 @@
 import type { HourlyReading } from '../../api/types'
 import { HOUR_MS, RECENT_HOURS as HOURS, localMs as ms, recentStart } from '../../lib/format'
+import { useNarrow } from '../../lib/useNarrow'
 import s from '../calendar/calendar.module.css'
 
-// 카드 너비(약 640px)에 맞춘 좌표계. 작게 잡으면 늘어나면서 축 글자가 두 배로 커진다
-const W = 640
-const H = 240
 const PAD = { l: 34, r: 10, t: 12, b: 26 }
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
@@ -23,6 +21,10 @@ export function RecentChart({
   high: number
   daytime: [number, number]
 }) {
+  // 실제 카드 너비에 맞춘 좌표계. 안 맞으면 늘거나 줄면서 축 글자 크기가 달라진다
+  const compact = useNarrow()
+  const W = compact ? 330 : 640
+  const H = compact ? 210 : 240
   const start = recentStart(end)
   const hourOf = (i: number) => new Date(start + i * HOUR_MS).getHours()
   const points = readings
@@ -94,7 +96,7 @@ export function RecentChart({
         />
       ))}
       {points.map((p) => (
-        <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r={4} fill={color(p.v)} stroke="#fff" strokeWidth={1.5}>
+        <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r={compact ? 3 : 4} fill={color(p.v)} stroke="#fff" strokeWidth={1.5}>
           <title>
             {pad2(hourOf(p.i))}시 · {p.v.toFixed(2)} kPa
           </title>

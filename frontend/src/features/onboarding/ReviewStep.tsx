@@ -1,6 +1,6 @@
 import { useBacktest, useCalendar, useGreenhouse } from '../../api/hooks'
 import { StateBadge } from '../../components/StateBadge'
-import { Badge, ButtonLink, Card, ErrorState, Loading, Notice, PageHeader } from '../../components/ui'
+import { ButtonLink, Card, ErrorState, Loading, Notice, PageHeader, Stat } from '../../components/ui'
 import { hintClass, tableClass, tableWrapClass } from '../../components/classes'
 import { day, daysBetween, num, pct, signedPct } from '../../lib/format'
 import { connectionLabel, STATE } from '../../lib/labels'
@@ -21,50 +21,39 @@ export function ReviewStep({ id }: { id: number }) {
 
   const span = backtest.history_start && backtest.history_end ? daysBetween(backtest.history_start, backtest.history_end) : 0
   const coverage = span > 0 ? backtest.hours / (span * 24) : 0
+  // 실시간 값이 들어오는 연결이어야 오늘·어드바이저 화면이 채워진다
+  const live = gh.connection_type !== 'csv'
 
   return (
     <>
-      <PageHeader title={`이력 확인과 시작 · ${gh.name}`} sub="온보딩 3/3 · 이력 점검과 시작 상태" />
+      <PageHeader title={`이력 확인과 시작 · ${gh.name}`} sub="올린 이력을 점검하고 시작 상태를 확인합니다." />
       <Steps current={3} ghId={id} />
 
       <div className={s.grid}>
         <div className={s.col}>
           <Card title="이력 점검">
-            <div className={tableWrapClass}>
-              <table className={tableClass}>
-                <tbody>
-                  <tr>
-                    <th scope="row">이력 기간</th>
-                    <td className="mono">
-                      {day(backtest.history_start)} ~ {day(backtest.history_end)} · {span}일
-                    </td>
-                    <td>{span >= 14 ? <Badge tone="brand">14일 이상</Badge> : <Badge tone="info">14일 미만</Badge>}</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">정시 관측</th>
-                    <td className="mono">
-                      {num(span * 24)}시간 중 {num(backtest.hours)}시간 · {pct(coverage)}
-                    </td>
-                    <td />
-                  </tr>
-                  <tr>
-                    <th scope="row">CO2</th>
-                    <td>{gh.has_co2 ? '연결됨' : '없음 — 모델 예측은 쓰지 않습니다'}</td>
-                    <td>{gh.has_co2 ? <Badge tone="brand">연결됨</Badge> : <Badge tone="warn">없음</Badge>}</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">낮 대역 안</th>
-                    <td className="mono">
-                      {pct(sum.dayInBand, 1)} · 아래 {pct(sum.dayBelow)} · 위 {pct(sum.dayAbove)}
-                    </td>
-                    <td>
-                      <span className="muted mono">
-                        {gh.vpd_low}~{gh.vpd_high} kPa
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className={s.review}>
+              <Stat
+                label="이력 기간"
+                value={span}
+                unit="일"
+                foot={`${day(backtest.history_start)} ~ ${day(backtest.history_end)} · ${span >= 14 ? '판정 가능' : '14일부터 판정'}`}
+              />
+              <Stat
+                label="정시 관측"
+                value={pct(coverage)}
+                foot={`${num(span * 24)}시간 중 ${num(backtest.hours)}시간`}
+              />
+              <Stat
+                label="낮 대역 안"
+                value={pct(sum.dayInBand, 1)}
+                foot={`아래 ${pct(sum.dayBelow)} · 위 ${pct(sum.dayAbove)} · ${gh.vpd_low}~${gh.vpd_high} kPa`}
+              />
+              <Stat
+                label="CO2"
+                value={gh.has_co2 ? '연결됨' : '없음'}
+                foot={gh.has_co2 ? '모델 예측을 쓸 수 있습니다' : '모델 예측은 쓰지 않습니다'}
+              />
             </div>
             <p className={hintClass} style={{ marginTop: 12 }}>
               낮은 09~17시 기준입니다. 대역 아래(과습) 비율이 높게 나오는 건 오류가 아니라 이력 그대로입니다. 대역은 작물과
@@ -84,14 +73,14 @@ export function ReviewStep({ id }: { id: number }) {
               <table className={tableClass}>
                 <thead>
                   <tr>
-                    <th>지평</th>
+                    <th>예측</th>
                     <th className="num">판정한 주</th>
                     <th className="num">최근 주 개선율</th>
                     <th>시작 상태</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {backtest.horizons.map((h) => {
+                  {backtest.horizons.filter((h) => h.state !== 'reference').map((h) => {
                     const judged = h.buckets.filter((b) => b.index >= 2 && b.verdict !== 'insufficient')
                     const last = judged.at(-1)
                     return (
@@ -137,12 +126,14 @@ export function ReviewStep({ id }: { id: number }) {
               </li>
               <li>
                 <span className={s.listKey}>지금 쓸 수 있는 화면</span>
-                <span className={s.listVal}>캘린더</span>
+                <span className={s.listVal}>{live ? '오늘 · 캘린더 · AI 어드바이저' : '캘린더'}</span>
               </li>
-              <li>
-                <span className={s.listKey}>수집 API가 필요한 화면</span>
-                <span className={s.listVal}>오늘 · AI 어드바이저</span>
-              </li>
+              {!live && (
+                <li>
+                  <span className={s.listKey}>수집 API가 필요한 화면</span>
+                  <span className={s.listVal}>오늘 · AI 어드바이저</span>
+                </li>
+              )}
             </ul>
           </Card>
           <div className={s.actions}>

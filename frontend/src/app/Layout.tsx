@@ -29,19 +29,54 @@ export function Layout() {
     navigate(`/g/${id}/${NAV.some((n) => n.to === section) ? section : 'calendar'}`)
   }
 
+  // 데스크톱은 사이드바, 휴대폰은 상단 메뉴에 같은 내용을 보여준다
+  const newGreenhouse = !readonly && me && (
+    <Link to="/onboarding" className={s.newGh}>
+      <Icon name="plus" size={15} />새 온실 등록
+    </Link>
+  )
+  const account = !meLoading && (
+    <div className={s.account}>
+      {me ? (
+        <>
+          <span className={s.accountEmail} title={me.email}>
+            {me.email}
+          </span>
+          <button
+            type="button"
+            className={s.accountAction}
+            disabled={logout.isPending}
+            onClick={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}
+          >
+            로그아웃
+          </button>
+        </>
+      ) : (
+        <>
+          <Link to="/login" className={s.accountAction}>
+            로그인
+          </Link>
+          <Link to="/signup" className={s.accountAction}>
+            회원가입
+          </Link>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className={s.shell}>
       <aside className={s.side}>
-        <Link to="/" className={s.brand}>
+        <Link to="/" className={s.brand} aria-label="VPD 캘린더 처음으로">
           <LogoMark />
-          <span>
+          <span className={s.brandText}>
             VPD 캘린더
             <small className={s.brandSub}>스마트팜 의사결정 지원</small>
           </span>
         </Link>
 
         <nav className={s.nav} aria-label="주 메뉴">
-          <NavLink to="/about" className={s.navItem}>
+          <NavLink to="/about" className={`${s.navItem} ${s.navAbout}`}>
             <Icon name="info" />
             서비스 소개
           </NavLink>
@@ -88,41 +123,24 @@ export function Layout() {
               {current.crop} · {connectionLabel(current.connection_type)}
             </span>
           )}
-          {!readonly && me && (
-            <Link to="/onboarding" className={s.newGh}>
-              <Icon name="plus" size={15} />새 온실 등록
-            </Link>
-          )}
+          {newGreenhouse}
         </div>
 
-        {!meLoading && (
-          <div className={s.account}>
-            {me ? (
-              <>
-                <span className={s.accountEmail} title={me.email}>
-                  {me.email}
-                </span>
-                <button
-                  type="button"
-                  className={s.accountAction}
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}
-                >
-                  로그아웃
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className={s.accountAction}>
-                  로그인
-                </Link>
-                <Link to="/signup" className={s.accountAction}>
-                  회원가입
-                </Link>
-              </>
-            )}
+        {account}
+
+        {/* 휴대폰 상단의 메뉴. 화면을 옮기면 key가 바뀌어 저절로 닫힌다 */}
+        <details className={s.more} key={location.pathname}>
+          <summary className={s.moreButton} aria-label="메뉴">
+            <Icon name="menu" size={22} />
+          </summary>
+          <div className={s.morePanel}>
+            <Link to="/about" className={s.moreLink}>
+              서비스 소개
+            </Link>
+            {newGreenhouse}
+            {account}
           </div>
-        )}
+        </details>
       </aside>
 
       <main className={s.main}>

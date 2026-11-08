@@ -12,7 +12,7 @@ export function GreenhouseStep() {
 
   return (
     <>
-      <PageHeader title="온실 등록" sub="온보딩 1/3 · 온실과 작물, 적정 대역을 정합니다." />
+      <PageHeader title="온실 등록" sub="온실과 작물, 적정 대역을 정합니다." />
       <Steps current={1} />
       <div className={s.grid}>
         <GreenhouseForm
@@ -47,12 +47,12 @@ export function GreenhouseStep() {
           <Card title="다음 단계">
             <ul className={s.list}>
               <li>
-                <span className={s.listVal}>2 · 데이터 연결</span>
-                <span className={s.listKey}>CSV 파일을 올리고 열을 매핑합니다</span>
+                <span className={s.listKey}>2 · 데이터 연결</span>
+                <span className={s.listVal}>CSV 파일을 올리거나 수집 API를 연결합니다</span>
               </li>
               <li>
-                <span className={s.listVal}>3 · 이력 확인과 시작</span>
-                <span className={s.listKey}>이력으로 백테스트를 돌려 모델 상태를 정합니다</span>
+                <span className={s.listKey}>3 · 이력 확인과 시작</span>
+                <span className={s.listVal}>이력으로 백테스트를 돌려 모델 상태를 정합니다</span>
               </li>
             </ul>
           </Card>

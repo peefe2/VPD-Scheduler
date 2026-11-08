@@ -50,6 +50,14 @@ export function CalendarPage({ id }: { id: number }) {
     setParams({ month: next })
   }
 
+  // 한 줄로 쌓이는 폭에서는 상세가 달력 아래에 있어, 눌러도 변화가 안 보이지 않게 내려 준다
+  const select = (date: string) => {
+    setSelected(date)
+    if (window.matchMedia('(max-width: 1080px)').matches) {
+      requestAnimationFrame(() => document.querySelector(`.${s.detail}`)?.scrollIntoView({ behavior: 'smooth' }))
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -87,7 +95,7 @@ export function CalendarPage({ id }: { id: number }) {
 
       <div className={s.layout}>
         <Card title={`${m}월`} sub="칸 색은 낮(09~17시)에 적정 대역 안에 있던 비율입니다.">
-          <MonthGrid month={month} days={byDate} selected={selected} onSelect={setSelected} />
+          <MonthGrid month={month} days={byDate} selected={selected} onSelect={select} />
         </Card>
         <DayDetail id={id} day={selected ? byDate.get(selected) : undefined} cal={cal} />
       </div>

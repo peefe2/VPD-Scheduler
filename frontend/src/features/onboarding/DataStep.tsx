@@ -66,7 +66,7 @@ export function DataStep({ id }: { id: number }) {
 
   return (
     <>
-      <PageHeader title={`데이터 연결 · ${gh?.name ?? ''}`} sub="온보딩 2/3 · 연결 방식과 컬럼 매핑" />
+      <PageHeader title={`데이터 연결 · ${gh?.name ?? ''}`} sub="연결 방식을 고르고 측정 데이터를 가져옵니다." />
       <Steps current={2} ghId={id} />
 
       <div className={s.grid}>
@@ -270,8 +270,8 @@ export function DataStep({ id }: { id: number }) {
           <Card title="입력 요건">
             <ul className={s.list}>
               <li>
-                <span className={s.listKey}>필수 센서</span>
-                <span className={s.listVal}>온도 · 습도 · CO2 (VPD는 온도와 습도로 계산)</span>
+                <span className={s.listKey}>센서</span>
+                <span className={s.listVal}>온도 · 습도는 필수, CO2는 모델 예측에 필요 (VPD는 온도와 습도로 계산)</span>
               </li>
               <li>
                 <span className={s.listKey}>샘플링</span>
@@ -353,7 +353,9 @@ function TokenPanel({ id, issue }: { id: number; issue: ReturnType<typeof useIss
               {copied ? '복사됨' : '복사'}
             </Button>
           </div>
-          <Notice tone="warn">이 토큰은 지금만 볼 수 있습니다. 잃어버리면 재발급하세요.</Notice>
+          <div style={{ marginTop: 10 }}>
+            <Notice tone="warn">이 토큰은 지금만 볼 수 있습니다. 잃어버리면 재발급하세요.</Notice>
+          </div>
         </>
       )}
       {issue.isError && <Notice tone="warn">토큰을 발급하지 못했습니다: {String(issue.error.message)}</Notice>}
@@ -397,14 +399,8 @@ function IngestGuide({ id }: { id: number }) {
           <span className={s.listVal}>최대 1,000건</span>
         </li>
       </ul>
-      <pre className="code" style={{ marginTop: 14, fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
-        {EXAMPLE}
-      </pre>
+      <pre className={s.codeBlock}>{EXAMPLE}</pre>
       <TokenPanel id={id} issue={issue} />
-      <p className={hintClass} style={{ marginTop: 8 }}>
-        토큰은 센서 쪽 수집만 보호합니다. 웹 화면(토큰 발급 포함)에는 아직 로그인이 없으니 같은 네트워크 안에서
-        시연용으로만 쓰세요.
-      </p>
     </Card>
   )
 }
@@ -421,7 +417,7 @@ function ReplayGuide({ id, source }: { id: number; source: string | null }) {
   }
   return (
     <Card title="재생 모드" sub="연구 데이터를 날짜만 오늘로 옮겨, 실제 시계에 맞춰 정시마다 1건씩 보냅니다.">
-      <pre className="code" style={{ fontSize: 12, overflowX: 'auto', whiteSpace: 'pre' }}>
+      <pre className={s.codeBlock} style={{ marginTop: 0 }}>
         {`cd research\nuv run --project ../backend python replay_ingest.py ${id} ${source} --token ${issue.data?.token ?? '<토큰>'}`}
       </pre>
       <TokenPanel id={id} issue={issue} />

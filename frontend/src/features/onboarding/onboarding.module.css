@@ -1,55 +1,79 @@
+/* 단계 표시: 번호를 선으로 이은 한 줄 */
 .steps {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin: 0 0 28px;
   padding: 0;
   list-style: none;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.steps li:last-child {
+  flex: none;
+}
+
+.steps li:not(:last-child)::after {
+  content: '';
+  flex: 1;
+  min-width: 16px;
+  height: 2px;
+  margin: 0 14px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.steps li:has(.step[data-state='done'])::after {
+  background: var(--brand-2);
 }
 
 .step {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 42px;
-  padding: 0 16px 0 7px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
   font-size: 14px;
   font-weight: 600;
   color: var(--ink-3);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .stepNum {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  flex: none;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--line);
-  color: var(--ink);
+  background: var(--surface-muted);
+  color: var(--ink-3);
   font-family: var(--mono);
   font-size: 13px;
+  font-weight: 700;
 }
 
 .step[data-state='current'] {
-  background: var(--surface-strong);
   color: var(--ink);
-  box-shadow: var(--shadow);
+  font-weight: 700;
 }
 .step[data-state='current'] .stepNum {
-  background: var(--ink);
+  background: var(--brand);
   color: #fff;
+  box-shadow: 0 0 0 4px var(--brand-soft);
 }
 .step[data-state='done'] {
-  background: var(--brand-soft);
   color: var(--brand);
-  border-color: transparent;
 }
 .step[data-state='done'] .stepNum {
   background: var(--brand-2);
   color: #fff;
+}
+a.step:hover .stepLabel {
+  text-decoration: underline;
 }
 
 .grid {
@@ -135,6 +159,102 @@
   gap: 2px;
 }
 
+.list li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.list li:last-child {
+  padding-bottom: 0;
+}
+
+/* 이름과 값을 한 줄에 (대역 이력) */
+.list li.listRow {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.listRow .listVal {
+  margin-left: auto;
+}
+
+/* 대역을 눈금 위에 보여준다 */
+.scale {
+  margin-top: 16px;
+}
+
+.scaleTrack {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--below-soft), var(--surface-muted) 30%, var(--surface-muted) 70%, var(--above-soft));
+}
+
+.scaleBand {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--brand-2);
+  transition:
+    left 0.15s,
+    width 0.15s;
+}
+
+.scaleZones {
+  position: relative;
+  height: 18px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.scaleZones span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+/* 데모 전용 설정은 평소에 접어 둔다 */
+.demoBox {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  padding: 14px 24px;
+}
+
+.demoBox summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.demoBox[open] summary {
+  margin-bottom: 14px;
+}
+
+/* 복사해서 쓰는 코드 */
+.codeBlock {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-m);
+  background: #14211c;
+  color: #e6efe9;
+  font-family: var(--code);
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.review {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .listKey {
   font-size: 12px;
   color: var(--ink-3);
@@ -176,14 +296,20 @@
   cursor: pointer;
 }
 
+.conn:hover:not(:disabled) {
+  border-color: var(--brand-2);
+}
+
 .conn[aria-pressed='true'] {
   border: 2px solid var(--brand-2);
   padding: 13px 15px;
+  background: var(--brand-tint);
 }
 
-.conn:disabled {
+.conn:disabled:not([aria-pressed='true']) {
   cursor: not-allowed;
   background: var(--surface);
+  opacity: 0.6;
 }
 
 .connHead {
@@ -278,8 +404,14 @@
   .checks,
   .conns,
   .mapping,
-  .result {
+  .result,
+  .review {
     grid-template-columns: 1fr;
+  }
+
+  /* 좁은 폭에서는 지금 단계 이름만 */
+  .step:not([data-state='current']) .stepLabel {
+    display: none;
   }
 }
 

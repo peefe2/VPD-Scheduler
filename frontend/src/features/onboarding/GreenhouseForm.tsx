@@ -9,6 +9,24 @@ import s from './onboarding.module.css'
 
 const CROPS = ['토마토', '파프리카', '오이', '딸기']
 
+// 입력한 대역이 0~3 kPa 눈금에서 어디쯤인지 보여준다
+function BandScale({ low, high }: { low: number; high: number }) {
+  const max = Math.max(3, high)
+  const at = (x: number) => `${(x / max) * 100}%`
+  return (
+    <div className={s.scale} aria-hidden="true">
+      <div className={s.scaleTrack}>
+        <span className={s.scaleBand} style={{ left: at(low), width: at(high - low) }} />
+      </div>
+      <div className={s.scaleZones}>
+        {low >= 0.2 && <span style={{ left: at(low / 2) }}>과습</span>}
+        <span style={{ left: at((low + high) / 2) }}>적정</span>
+        {max - high >= 0.2 && <span style={{ left: at((high + max) / 2) }}>건조</span>}
+      </div>
+    </div>
+  )
+}
+
 export function GreenhouseForm({
   initial,
   error,
@@ -116,6 +134,7 @@ export function GreenhouseForm({
             />
           </Field>
         </div>
+        {!bandError && <BandScale low={lo} high={hi} />}
         <p className={hintClass} style={{ marginTop: 10, color: bandError ? 'var(--danger)' : undefined }}>
           {bandError ??
             '기본값 0.5~1.5 kPa는 시설 채소의 주간 적정 범위로 보고된 값입니다. 작물과 시기에 맞게 바꿀 수 있습니다.'}
@@ -169,7 +188,8 @@ export function GreenhouseForm({
       </Card>
 
       {sources && sources.length > 0 && (
-        <Card title="데모 설정" sub="연구 데이터셋에 있던 온실의 데이터를 올릴 때만 지정합니다.">
+        <details className={s.demoBox} open={!!initial.holdout_source}>
+          <summary>데모 설정 · 연구 데이터셋에 있던 온실의 데이터를 올릴 때만</summary>
           <Field
             label="학습에 쓰인 온실"
             htmlFor="gh-holdout"
@@ -189,7 +209,7 @@ export function GreenhouseForm({
               ))}
             </select>
           </Field>
-        </Card>
+        </details>
       )}
 
       {error != null && <Notice tone="warn">{error instanceof Error ? error.message : String(error)}</Notice>}
