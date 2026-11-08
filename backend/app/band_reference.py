@@ -10,23 +10,84 @@
 
 DEFAULT_BAND = (0.5, 1.5)
 
+# kind·region은 화면의 근거 표시용: 어떤 종류의 자료인지, 국내 자료인지.
 SOURCES = {
+    "A": {
+        "short": "앨버타 주정부 토마토 육묘 지침",
+        "citation": "Government of Alberta, Tomato plant propagation in commercial greenhouse tomato production.",
+        "url": "https://www.alberta.ca/index%2Ephp/tomato-plant-propagation-in-commercial-greenhouse-tomato-production",
+        "kind": "공공기관",
+        "region": "해외",
+    },
+    "K": {
+        "short": "전라남도농업기술원 2021",
+        "citation": "정수호 외 (2021). 계절별 HD(수분부족량) 기반 시설환경관리 방법. 원예과학기술지 39(별호Ⅱ), 학술발표요지.",
+        "url": "https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE10618843",
+        "kind": "학회 초록",
+        "region": "국내",
+    },
+    "M": {
+        "short": "Mirza 2023",
+        "citation": "Mirza, M. (2023). Managing winter greenhouse vegetable crops, Part one: Tomatoes. Greenhouse Canada.",
+        "url": "https://www.greenhousecanada.com/managing-winter-greenhouse-vegetable-crops/",
+        "kind": "업계 기고",
+        "region": "해외",
+    },
+    "B": {
+        "short": "Bakker 1991",
+        "citation": "Bakker, J.C. (1991). Analysis of humidity effects on growth and production of glasshouse fruit "
+                    "vegetables. PhD thesis, Wageningen University.",
+        "url": "https://research.wur.nl/en/publications/analysis-of-humidity-effects-on-growth-and-production-of-glasshou/",
+        "kind": "논문",
+        "region": "해외",
+    },
+    "Z": {
+        "short": "Zhang et al. 2015",
+        "citation": "Zhang, D. et al. (2015). Regulation of Vapor Pressure Deficit by Greenhouse Micro-Fog Systems "
+                    "Improved Growth and Productivity of Tomato via Enhancing Photosynthesis during Summer Season. "
+                    "PLoS ONE 10(7), e0133919.",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4519188/",
+        "kind": "논문",
+        "region": "해외",
+    },
+    "L": {
+        "short": "Jiao et al. 2019",
+        "citation": "Jiao, X.-C. et al. (2019). Coordination between vapor pressure deficit and CO2 on the regulation "
+                    "of photosynthesis and productivity in greenhouse tomato production. Sci. Rep. 9, 8700.",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6581957/",
+        "kind": "논문",
+        "region": "해외",
+    },
+    "G": {
+        "short": "김가영 외 2021",
+        "citation": "김가영, 우승미, 김호철 (2021). 파프리카 생산성 차이 농가 간 지상부 환경요인 비교. "
+                    "문화기술의 융합 7(4), 785–789.",
+        "url": "https://scienceon.kisti.re.kr/srch/selectPORSrchArticle.do?cn=JAKO202104247947936",
+        "kind": "논문",
+        "region": "국내",
+    },
     "S": {
         "short": "Shamshiri et al. 2018",
         "citation": "Shamshiri, R.R. et al. (2018). Review of optimum temperature, humidity, and vapour pressure "
                     "deficit for microclimate evaluation and control in greenhouse cultivation of tomato: a review. "
                     "Int. Agrophys. 32, 287–302.",
         "url": "https://doi.org/10.1515/intag-2017-0005",
+        "kind": "논문",
+        "region": "해외",
     },
     "J": {
         "short": "제주농업기술원 파프리카 자료",
         "citation": "허영길, 「파프리카」, 제주특별자치도농업기술원 과채류 재배 자료 (p.16).",
         "url": "https://agri.jeju.go.kr/files/board/과채류(파프리카).pdf",
+        "kind": "지역 지도 자료",
+        "region": "국내",
     },
     "C": {
         "short": "Singh et al. 2021",
         "citation": "Singh et al. (2021). Journal of Agrometeorology (초록 기준).",
         "url": "https://doaj.org/article/e03a887fb5bb412c8cae5ca13e98185c",
+        "kind": "논문",
+        "region": "해외",
     },
     "Y": {
         "short": "Yamanaka et al. 2025 (Lieten 2002 인용)",
@@ -34,12 +95,16 @@ SOURCES = {
                     "Water-stress Status in Strawberry. Hort. J. 94(1), 73–80 — 서론에서 Lieten, P. (2002), "
                     "Acta Hortic. 567, 479–482를 인용.",
         "url": "https://doi.org/10.2503/hortj.SZD-015",
+        "kind": "논문 (2차 인용)",
+        "region": "해외",
     },
     "O": {
         "short": "Ono et al. 2026",
         "citation": "Ono, S. et al. (2026). Photosynthetic Validation of Decision Tree-based Water Stress "
                     "Thresholds in Strawberry under Varying VPD and CO2 Conditions. Environ. Control Biol. 64(3), 105–109.",
         "url": "https://doi.org/10.2525/ecb.64.105",
+        "kind": "논문",
+        "region": "해외",
     },
 }
 
@@ -55,8 +120,16 @@ def _ref(low, high, source, label):
 # 작물별 생육 단계. stage "all" = 단계 구분 없음.
 TABLE = {
     "토마토": [
-        {"stage": "seedling", "label": "육묘·삽목(발근)",
-         "recommend": _rec(0.3, 0.5, "S", "중", "삽목(발근) 때의 값이라 실생 육묘에 그대로 쓸지는 판단이 필요합니다.")},
+        {"stage": "cutting", "label": "삽목(발근)",
+         "recommend": _rec(0.3, 0.5, "S", "중", "뿌리가 내리기 전이라 시들지 않도록 습하게 관리하는 값입니다.")},
+        {"stage": "seedling", "label": "육묘 (발아 후)",
+         "recommend": _rec(0.69, 0.83, "A", "중 (환산값)",
+                           "지침의 습도부족분을 25°C 기준으로 kPa로 환산한 값입니다.",
+                           "원문: 발아 후 25°C, 습도 70~75%, VPD 5~6 g/m³ (원문 표기 g/cm³는 오기로 판단)")},
+        {"stage": "transplant", "label": "정식 초기",
+         "recommend": _rec(0.47, 0.68, "A", "중 (환산값)",
+                           "모종을 재배 온실로 옮긴 뒤의 값으로, 지침의 습도부족분을 20°C 기준으로 kPa로 환산했습니다.",
+                           "원문: 재배 온실 이동 후 20°C(주야), 습도 75%, VPD 3.5~5 g/m³")},
         {"stage": "vegetative", "label": "영양생장", "recommend": None, "reason": "이 단계의 VPD 근거를 찾지 못했습니다."},
         {"stage": "flowering", "label": "개화·착과",
          "recommend": _rec(0.2, 1.0, "S", "중",
@@ -69,6 +142,8 @@ TABLE = {
              _ref(0.5, 0.8, "S", "Barker 1990 (Shamshiri 2018 인용)"),
              _ref(0.5, 1.2, "S", "Argus 2009, 업체 자료 (Shamshiri 2018 인용)"),
              _ref(0.47, 1.27, "S", "Factsheet 2015 (Shamshiri 2018 인용)"),
+             _ref(0.5, 1.2, "K", "시설 과채류 공통, 작목 구분 없음 (전라남도농업기술원 2021)"),
+             _ref(0.41, 0.95, "M", "겨울철, 3~7 g/m³를 20~22°C로 환산 (업계 기고)"),
          ]},
     ],
     "파프리카": [
@@ -78,11 +153,13 @@ TABLE = {
          "recommend": _rec(0.54, 0.95, "J", "낮음",
                            "지역 지도 자료의 습도부족분을 22°C로 가정해 kPa로 환산한 값입니다.",
                            "원문: 주간 습도 80% 내외, 습도부족분(HD) 4~7 g/m³")},
-        {"stage": "all", "label": "단계 구분 없음", "recommend": None, "reason": "단계 구분 없는 kPa 근거를 찾지 못했습니다."},
+        {"stage": "all", "label": "단계 구분 없음", "recommend": None, "reason": "파프리카에 한정한 kPa 근거를 찾지 못했습니다.",
+         "references": [_ref(0.5, 1.2, "K", "시설 과채류 공통, 작목 구분 없음 (전라남도농업기술원 2021)")]},
     ],
     "오이": [
         {"stage": "all", "label": "단계 구분 없음",
-         "recommend": _rec(0.53, 1.10, "C", "낮음~중", "인도 자연환기 온실에서 한 연구 그룹이 보고한 범위입니다.")},
+         "recommend": _rec(0.53, 1.10, "C", "낮음~중", "인도 자연환기 온실에서 한 연구 그룹이 보고한 범위입니다."),
+         "references": [_ref(0.5, 1.2, "K", "시설 과채류 공통, 작목 구분 없음 (전라남도농업기술원 2021)")]},
     ],
     "딸기": [
         {"stage": "all", "label": "단계 구분 없음",
@@ -95,5 +172,27 @@ TABLE = {
 }
 
 
+# 대역 값은 아니지만 문헌에서 확인한 작물별 경향. kind "caution"은 벗어났을 때의 위험.
+CROP_NOTES = {
+    "토마토": [
+        {"kind": "trait", "source": "B", "text": "계속 습하게 관리하면 칼슘 결핍으로 잎이 줄고 수량이 낮아졌습니다 (0.3~0.9 kPa 장기 실험)."},
+        {"kind": "caution", "source": "Z", "text": "여름 한낮 VPD를 1.75에서 0.75 kPa로 낮추자 상품 수량이 12.3% 늘었습니다."},
+        {"kind": "caution", "source": "L", "text": "일 최고 VPD 평균을 4.44에서 1.90 kPa로 낮추자 수량이 11.5% 늘었습니다."},
+    ],
+    "파프리카": [
+        {"kind": "trait", "source": "B", "text": "0.3~0.9 kPa 장기 실험에서 습도는 수량에 영향을 주지 않았습니다."},
+        {"kind": "caution", "source": "G", "text": "수량이 낮은 농가는 2~3월 VPD가 1.5 kPa 이상이었고, 광량이 적을 때의 수분 스트레스로 해석됐습니다."},
+    ],
+    "오이": [
+        {"kind": "trait", "source": "B", "text": "낮 습도가 높을 때 최종 수량이 더 높았습니다 (0.3~0.9 kPa 장기 실험)."},
+    ],
+}
+
+
 def references() -> dict:
-    return {"default": {"low": DEFAULT_BAND[0], "high": DEFAULT_BAND[1]}, "sources": SOURCES, "crops": TABLE}
+    return {
+        "default": {"low": DEFAULT_BAND[0], "high": DEFAULT_BAND[1]},
+        "sources": SOURCES,
+        "crops": TABLE,
+        "crop_notes": CROP_NOTES,
+    }

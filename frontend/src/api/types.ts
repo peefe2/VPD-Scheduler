@@ -290,6 +290,7 @@ export interface BandStage {
 
 export interface BandReferences {
   default: { low: number; high: number }
-  sources: Record<string, { short: string; citation: string; url: string }>
+  sources: Record<string, { short: string; citation: string; url: string; kind: string; region: '국내' | '해외' }>
   crops: Record<string, BandStage[]>
+  crop_notes: Record<string, { kind: 'trait' | 'caution'; source: string; text: string }[]>
 }
