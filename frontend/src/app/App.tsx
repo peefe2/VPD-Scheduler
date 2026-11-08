@@ -10,7 +10,6 @@ import { ReviewStep } from '../features/onboarding/ReviewStep'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { TodayPage } from '../features/today/TodayPage'
 import { AdvisorPage } from '../features/advisor/AdvisorPage'
-import { TrustPage } from '../features/trust/TrustPage'
 import { Layout } from './Layout'
 
 // 로그인 전이면 서비스 소개. 로그인했으면 내 첫 온실, 없으면 공개(데모) 온실, 그것도 없으면 온실 등록
@@ -63,7 +62,6 @@ export function App() {
           <Route path="setup/data" element={<WithGreenhouse render={(id) => <DataStep id={id} />} />} />
           <Route path="setup/review" element={<WithGreenhouse render={(id) => <ReviewStep id={id} />} />} />
           <Route path="calendar" element={<WithGreenhouse render={(id) => <CalendarPage id={id} />} />} />
-          <Route path="trust" element={<WithGreenhouse render={(id) => <TrustPage id={id} />} />} />
           <Route path="settings" element={<WithGreenhouse render={(id) => <SettingsPage id={id} />} />} />
           <Route path="today" element={<WithGreenhouse render={(id) => <TodayPage id={id} />} />} />
           <Route path="advisor" element={<WithGreenhouse render={(id) => <AdvisorPage id={id} />} />} />

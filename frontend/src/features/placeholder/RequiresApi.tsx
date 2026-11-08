@@ -28,7 +28,7 @@ export function RequiresApi({ title }: { title: string }) {
             }
             action={action}
           >
-            실시간 값이 정시마다 들어와야 쓸 수 있는 화면입니다. CSV로 올린 이력은 캘린더와 모델 신뢰도에서 볼 수 있습니다.
+            실시간 값이 정시마다 들어와야 쓸 수 있는 화면입니다. CSV로 올린 이력은 캘린더에서 볼 수 있습니다.
           </Empty>
         )}
       </Card>

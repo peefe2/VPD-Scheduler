@@ -6,9 +6,3 @@ export const LOSO = [
   { horizon: '+3h', a: 17.2, aImproved: '6곳 중 5곳', b: -16.9 },
   { horizon: '+6h', a: 21.3, aImproved: '6곳 중 6곳', b: -14.5, reference: true },
 ] as const
-
-// 기본 대역 0.5~1.5 기준 +1h 이탈 재현율 @오경보 10%
-export const ONSET_1H = {
-  a: { model: 0.56, trend: 0.5, edge: 0.27 },
-  b: { model: 0.36, trend: 0.3, edge: 0.44 },
-} as const

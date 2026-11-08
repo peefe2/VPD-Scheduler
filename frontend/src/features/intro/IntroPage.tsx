@@ -203,7 +203,7 @@ export function IntroPage() {
             <span>즉시 현재 값 방식으로 복귀</span>
           </li>
         </ol>
-        <p className={s.note}>온실 하나씩 학습에서 빼고 잰 값(LOSO), 모델 신뢰도 화면에서 온실별 결과를 볼 수 있습니다.</p>
+        <p className={s.note}>위 오차 비교는 온실 하나씩 학습에서 빼고 잰 값(LOSO)입니다.</p>
       </section>
 
       <section className={s.section}>

@@ -137,7 +137,7 @@ export function ReviewStep({ id }: { id: number }) {
               </li>
               <li>
                 <span className={s.listKey}>지금 쓸 수 있는 화면</span>
-                <span className={s.listVal}>캘린더 · 모델 신뢰도</span>
+                <span className={s.listVal}>캘린더</span>
               </li>
               <li>
                 <span className={s.listKey}>수집 API가 필요한 화면</span>
