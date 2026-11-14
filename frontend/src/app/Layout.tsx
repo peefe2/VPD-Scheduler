@@ -8,8 +8,8 @@ import s from './Layout.module.css'
 
 const NAV: { to: string; label: string; icon: IconName; tag?: string }[] = [
   { to: 'today', label: '오늘', icon: 'today', tag: 'API' },
-  { to: 'calendar', label: '캘린더', icon: 'calendar' },
   { to: 'advisor', label: 'AI 어드바이저', icon: 'advisor', tag: 'API' },
+  { to: 'calendar', label: '캘린더', icon: 'calendar' },
   { to: 'settings', label: '온실 설정', icon: 'settings' },
 ]
 
